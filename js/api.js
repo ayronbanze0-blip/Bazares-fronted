@@ -8,8 +8,8 @@
 // Change this if your backend runs elsewhere. Defaults to localhost:3001
 // (the backend's default dev port). For production, replace with your
 // deployed backend URL, e.g. 'https://api.bazares.co.mz'.
-const API_BASE = (window.BAZARES_API_BASE ?? 'http://localhost:3001') + '/api';
-const SOCKET_BASE = window.BAZARES_SOCKET_BASE || window.BAZARES_API_BASE || 'http://localhost:3001';
+const API_BASE = (window.BAZARES_API_BASE || 'http://localhost:3001') + '/api';
+const SOCKET_BASE = window.BAZARES_API_BASE || 'http://localhost:3001';
 
 // ─── IN-MEMORY ACCESS TOKEN ────────────────────────────────────
 // Never persisted to localStorage; restored via silent refresh on load.

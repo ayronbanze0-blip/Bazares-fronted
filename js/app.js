@@ -621,18 +621,6 @@ async function initPage({ active = '', requireAuth = false, roles = null, onRead
   if (requireAuth && !user) { go('login.html', { next: location.href }); return; }
   if (roles && user && !roles.includes(user.role)) { go('dashboard.html'); return; }
 
-  // ── Onboarding gate ─────────────────────────────────────────────
-  // Contas novas (comprador/vendedor) nascem com onboarded:false e têm de
-  // passar pelo pequeno questionário em onboarding.html antes de usar o
-  // resto da app. Páginas públicas/de autenticação ficam de fora para não
-  // criar um ciclo de redireccionamentos.
-  const ONBOARDING_EXEMPT = ['onboarding.html','login.html','register.html','forgot-password.html','verify-email.html','index.html','support.html'];
-  const currentFile = location.pathname.split('/').pop() || 'index.html';
-  if (user && !user.onboardedAt && !ONBOARDING_EXEMPT.includes(currentFile)) {
-    go('onboarding.html');
-    return;
-  }
-
   // Sidebar needs responsive margin
   const main = document.getElementById('main');
   if (main) {
@@ -767,18 +755,13 @@ async function toggleFavorite(productId, btn) {
 function renderCatStrip(container, activeCat, onSelect) {
   const el = typeof container === 'string' ? document.getElementById(container) : container;
   if (!el) return;
-  // NOTA: o chip "Tudo" chamava uma função `catChipClick` que nunca existiu
-  // em lado nenhum — clicar nele disparava um ReferenceError silencioso e
-  // deixava o utilizador sem forma de voltar a "todas as categorias" depois
-  // de escolher uma. Agora usa o mesmo `_catPick` dos restantes chips.
   el.innerHTML = `
-    <div class="cat-chip${!activeCat ? ' on' : ''}" onclick="_catPick(this,'')">
+    <div class="cat-chip${!activeCat ? ' on' : ''}" onclick="catChipClick(this,'',${JSON.stringify(onSelect.toString())})">
       <div class="ci">🛍</div><div class="cl">Tudo</div>
     </div>
     ${CATS.map(c => `<div class="cat-chip${activeCat === c.l ? ' on' : ''}" onclick="_catPick(this,'${esc(c.l)}')">
       <div class="ci">${c.ico}</div><div class="cl">${c.l.slice(0, 10)}</div>
     </div>`).join('')}`;
-  el.classList.add('cat-strip');
   el._onSelect = onSelect;
 }
 window._catPick = function(el, cat) {
