@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="pt" data-theme="light">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Perfil — Bazares</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;0,14..32,800;1,14..32,500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header id="topbar"></header><div class="overlay" id="overlay"></div><aside id="sidebar" class="closed"></aside>
+<div id="main"><div id="view" class="pg-body"></div></div>
+<div id="modal-root"></div><div id="toast-root"></div>
+<script src="js/config.js"></script><script src="js/api.js"></script><script src="js/app.js"></script>
+<script>
+initPage({ active:'profile.html', requireAuth:true, onReady: async(user)=>{
+  const view=document.getElementById('view');
+  view.innerHTML=`
+    <div class="profile-hero">
+      <div class="pg-hero-content" style="display:flex;align-items:center;gap:20px;flex-wrap:wrap">
+        <div class="profile-avatar-wrap" onclick="document.getElementById('avatar-input').click()" title="Alterar foto de perfil">
+          ${userPhoto(user)?`<img src="${esc(userPhoto(user))}" alt="" class="profile-avatar-img">`:avatar(user.name,72)}
+          <div class="profile-avatar-edit">📷</div>
+        </div>
+        <input type="file" id="avatar-input" accept="image/jpeg,image/jpg,image/png,image/webp" hidden>
+        <div style="flex:1">
+          <h1 style="color:#fff;margin-bottom:4px">${esc(user.name)}</h1>
+          <div style="color:rgba(255,255,255,.55);font-size:13px;margin-bottom:10px">${esc(user.email)} · <span class="badge b-grn" style="vertical-align:middle">${ROLE_LABEL[user.role]||user.role}</span></div>
+          ${user.verifiedSeller?`<span class="badge b-gld">✓ Vendedor Verificado</span>`:''}
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-gold btn-sm" onclick="openEditProfile()">✏ Editar perfil</button>
+          <button class="btn btn-ghost btn-sm" style="color:#fff;border-color:rgba(255,255,255,.25)" onclick="go('settings.html')">⚙ Definições</button>
+        </div>
+      </div>
+    </div>
+    <div class="widget-grid">
+      <div class="card">
+        <h4 style="margin-bottom:16px">📋 Informação pessoal</h4>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          ${infoRow('👤','Nome',user.name)}
+          ${infoRow('📧','Email',user.email)}
+          ${user.phone?infoRow('📞','Telefone',user.phone):''}
+          ${user.location?infoRow('📍','Localização',user.location):''}
+          ${infoRow('🗓','Membro desde',fmtDate(user.createdAt))}
+        </div>
+      </div>
+      <div class="card">
+        <h4 style="margin-bottom:16px">⚡ Acções rápidas</h4>
+        <div class="quick-actions">
+          <button class="qa-btn" onclick="openEditProfile()"><div class="qa-btn-ico">✏</div><div><div style="font-weight:600">Editar perfil</div><div style="font-size:11px;color:var(--t4)">Nome, telefone, localização</div></div></button>
+          <button class="qa-btn" onclick="openChangePw()"><div class="qa-btn-ico">🔐</div><div><div style="font-weight:600">Alterar palavra-passe</div><div style="font-size:11px;color:var(--t4)">Actualizar credenciais</div></div></button>
+          <button class="qa-btn" onclick="go('referrals.html')"><div class="qa-btn-ico">🔗</div><div><div style="font-weight:600">Referências</div><div style="font-size:11px;color:var(--t4)">Partilhe e ganhe</div></div></button>
+          <button class="qa-btn" onclick="go('support.html')"><div class="qa-btn-ico">💬</div><div><div style="font-weight:600">Suporte</div><div style="font-size:11px;color:var(--t4)">Precisa de ajuda?</div></div></button>
+          <button class="qa-btn" onclick="openDeleteAccount()" style="border-color:var(--red-bg)"><div class="qa-btn-ico" style="background:var(--red-bg);color:var(--red)">🗑</div><div><div style="font-weight:600;color:var(--red)">Eliminar conta</div><div style="font-size:11px;color:var(--t4)">Acção irreversível</div></div></button>
+        </div>
+      </div>
+    </div>`;
+
+  // Stats do utilizador
+  try{
+    const statsRes = await api.get('/users/me/stats');
+    const s = statsRes?.data;
+    if(s){
+      const statsHtml = `<div class="stats-row" style="margin-bottom:16px">
+        <div class="stat"><div class="val">${s.totalOrders}</div><div class="lbl">Encomendas</div></div>
+        <div class="stat"><div class="val">${s.totalFavorites}</div><div class="lbl">Favoritos</div></div>
+        <div class="stat"><div class="val">${s.unreadMessages}</div><div class="lbl">Mensagens</div></div>
+        ${s.seller?`<div class="stat"><div class="val">${fmtMT(s.seller.totalSales)}</div><div class="lbl">Vendas</div></div>`:''}
+      </div>`;
+      const firstCard = document.querySelector('.widget-grid');
+      if(firstCard) firstCard.insertAdjacentHTML('beforebegin', statsHtml);
+    }
+  }catch{}
+
+  document.getElementById('avatar-input').addEventListener('change', async e=>{
+    const file=e.target.files[0];
+    if(!file) return;
+    const accepted=['image/jpeg','image/jpg','image/png','image/webp'];
+    if(!accepted.includes(file.type)){ toast('Use uma imagem JPG, PNG ou WEBP.','warn'); return; }
+    if(file.size>5*1024*1024){ toast('A imagem deve ter no máximo 5MB.','warn'); return; }
+    const fd=new FormData(); fd.append('avatar',file);
+    try{
+      toast('A actualizar foto de perfil…','info');
+      const res=await api.putForm('/users/me',fd);
+      if(res?.data?.user?.avatarUrl){
+        Session._user = {...Session.user, avatarUrl:res.data.user.avatarUrl};
+        toast('Foto de perfil actualizada!');
+        setTimeout(()=>location.reload(),600);
+      }
+    }catch(err){ toast(apiErrorMessage(err),'err'); }
+  });
+}});
+
+function infoRow(ico,lbl,val){
+  return `<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surf3);border-radius:var(--r);border:1px solid var(--brd)">
+    <span style="font-size:16px;width:22px;text-align:center">${ico}</span>
+    <div><div style="font-size:10px;color:var(--t4);text-transform:uppercase;letter-spacing:.06em">${lbl}</div><div style="font-weight:600;font-size:13px">${esc(val||'—')}</div></div>
+  </div>`;
+}
+
+function openEditProfile(){
+  const u=Session.user;
+  openModal(`<div class="modal-hd"><h3>Editar perfil</h3><button class="modal-x" onclick="closeModal()">✕</button></div>
+    <div class="fg"><label>Nome</label><input id="ep-name" value="${esc(u.name)}" placeholder="O seu nome"></div>
+    <div class="fg"><label>Telefone</label><input id="ep-phone" value="${esc(u.phone||'')}" placeholder="+258 8X XXX XXXX"></div>
+    <div class="fg"><label>Localização</label><input id="ep-loc" value="${esc(u.location||'')}" placeholder="Ex: Maputo, Moçambique"></div>
+    <div style="display:flex;gap:9px">
+      <button class="btn btn-primary" style="flex:1" onclick="saveProfile()">Guardar</button>
+      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+    </div>`);
+}
+async function saveProfile(){
+  const name=document.getElementById('ep-name').value.trim();
+  const phone=document.getElementById('ep-phone').value.trim();
+  const location=document.getElementById('ep-loc').value.trim();
+  if(!name){toast('O nome é obrigatório.','warn');return;}
+  const btn=document.querySelector('#modal-root .btn-primary');setLoading(btn,true);
+  try{ await api.put('/users/me',{name,phone,location}); closeModal(); toast('Perfil actualizado!'); setTimeout(()=>location.reload(),700); }
+  catch(e){setLoading(btn,false);toast(apiErrorMessage(e),'err');}
+}
+function openDeleteAccount(){
+  openModal(`<div class="modal-hd"><h3 style="color:var(--red)">⚠ Eliminar conta</h3><button class="modal-x" onclick="closeModal()">✕</button></div>
+    <p style="font-size:13px;color:var(--t2);margin-bottom:16px">Esta acção é <strong>permanente e irreversível</strong>. Todos os seus dados, encomendas, produtos e histórico serão eliminados.</p>
+    <div class="fg"><label>Escreva <strong>ELIMINAR</strong> para confirmar</label><input id="del-conf" type="text" placeholder="ELIMINAR"></div>
+    <div style="display:flex;gap:9px;margin-top:16px">
+      <button class="btn btn-danger" onclick="confirmDeleteAccount()">Eliminar permanentemente</button>
+      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+    </div>`);
+}
+
+async function confirmDeleteAccount(){
+  const val = document.getElementById('del-conf')?.value?.trim();
+  if(val !== 'ELIMINAR'){ toast('Escreva ELIMINAR para confirmar.','warn'); return; }
+  try{
+    await api.delete('/users/me');
+    closeModal();
+    toast('Conta eliminada.','info');
+    setTimeout(()=>go('index.html'),1200);
+  }catch(e){ toast(apiErrorMessage(e),'err'); }
+}
+
+function openChangePw(){
+  openModal(`<div class="modal-hd"><h3>Alterar palavra-passe</h3><button class="modal-x" onclick="closeModal()">✕</button></div>
+    <div class="fg"><label>Palavra-passe actual</label><input type="password" id="pw-old" placeholder="Actual"></div>
+    <div class="fg"><label>Nova palavra-passe</label><input type="password" id="pw-new" placeholder="Nova (mín. 8)"></div>
+    <div class="fg"><label>Confirmar nova</label><input type="password" id="pw-new2" placeholder="Repetir"></div>
+    <div style="display:flex;gap:9px">
+      <button class="btn btn-primary" style="flex:1" onclick="changePw()">Alterar</button>
+      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+    </div>`);
+}
+async function changePw(){
+  const old=document.getElementById('pw-old').value;
+  const nw=document.getElementById('pw-new').value;
+  const nw2=document.getElementById('pw-new2').value;
+  if(!old||!nw){toast('Preencha todos os campos.','warn');return;}
+  if(nw!==nw2){toast('As palavras-passe não coincidem.','err');return;}
+  if(nw.length<8){toast('A nova palavra-passe deve ter pelo menos 8 caracteres.','warn');return;}
+  const btn=document.querySelector('#modal-root .btn-primary');setLoading(btn,true);
+  try{await api.put('/users/me/password',{currentPassword:old,newPassword:nw});closeModal();toast('Palavra-passe alterada!');}
+  catch(e){setLoading(btn,false);toast(apiErrorMessage(e),'err');}
+}
+</script></body></html>

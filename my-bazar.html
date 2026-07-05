@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="pt" data-theme="light">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>O meu Bazar — Bazares</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;0,14..32,800;1,14..32,500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header id="topbar"></header><div class="overlay" id="overlay"></div><aside id="sidebar" class="closed"></aside>
+<div id="main"><div id="view" class="pg-body"></div></div>
+<div id="modal-root"></div><div id="toast-root"></div>
+<script src="js/config.js"></script><script src="js/api.js"></script><script src="js/app.js"></script>
+<script>
+initPage({ active:'my-bazar.html', requireAuth:true, roles:['SELLER'], onReady: async()=>{
+  const view=document.getElementById('view');
+  let bazar=null;
+  try{ bazar=(await api.get('/bazars/me'))?.data?.bazar; } catch{}
+
+  view.innerHTML=`
+    <div class="pg-hero">
+      <div class="pg-hero-content">
+        <div class="section-pill">🏪 Loja</div>
+        <h1>${bazar?'O meu Bazar':'Criar Bazar'}</h1>
+        <p>${bazar?'Gira o seu espaço de venda':'Configure a sua loja e comece a vender'}</p>
+        ${bazar?`<div class="pg-hero-actions">
+          <button class="btn btn-gold btn-sm" onclick="openEditBazar()">✏ Editar Bazar</button>
+          <button class="btn btn-ghost btn-sm" style="color:#fff;border-color:rgba(255,255,255,.25)" onclick="go('bazar.html',{id:'${bazar.slug||bazar.id}'})">Ver loja pública →</button>
+        </div>`:''}
+      </div>
+    </div>
+    ${bazar?`
+    <div class="widget-grid">
+      <div class="card">
+        <h4 style="margin-bottom:16px">📋 Detalhes da loja</h4>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--surf3);border-radius:var(--r);border:1px solid var(--brd)">
+            <div class="avatar-edit-wrap" onclick="document.getElementById('logo-input').click()" title="Alterar foto da loja">
+              ${avatar(bazar.name, 44, bazar.logoUrl || null)}
+              <div class="avatar-edit-badge">📷</div>
+            </div>
+            <input type="file" id="logo-input" accept="image/jpeg,image/jpg,image/png,image/webp" hidden>
+            <div>
+              <div style="font-weight:700;font-size:15px">${esc(bazar.name)}</div>
+              <div style="font-size:11px;color:var(--t4)">${esc(bazar.category)}</div>
+            </div>
+          </div>
+          ${bazar.description?`<div style="padding:12px;background:var(--surf3);border-radius:var(--r);border:1px solid var(--brd);font-size:13px;color:var(--t2);line-height:1.6">${esc(bazar.description)}</div>`:''}
+          ${bazar.location?`<div style="padding:10px 12px;background:var(--surf3);border-radius:var(--r);border:1px solid var(--brd);font-size:13px;display:flex;gap:8px;align-items:center"><span>📍</span>${esc(bazar.location)}</div>`:''}
+          <div style="display:flex;gap:8px">
+            <div style="flex:1;padding:12px;background:var(--surf3);border-radius:var(--r);border:1px solid var(--brd);text-align:center">
+              <div style="font-family:'Inter',sans-serif;font-size:22px;font-weight:900;color:var(--b-600)">${bazar._count?.products||0}</div>
+              <div style="font-size:10px;color:var(--t4);text-transform:uppercase;letter-spacing:.06em;margin-top:2px">Produtos</div>
+            </div>
+            <div style="flex:1;padding:12px;background:var(--surf3);border-radius:var(--r);border:1px solid var(--brd);text-align:center">
+              <div style="font-family:'Inter',sans-serif;font-size:22px;font-weight:900;color:var(--a-600)">
+                ${bazar.seller?.rating ? bazar.seller.rating.toFixed(1) : '—'}
+              </div>
+              ${bazar.seller?.rating
+                ? `<div style="display:flex;justify-content:center;gap:2px;margin:3px 0 1px">${[1,2,3,4,5].map(i=>`<span style="font-size:11px;color:${i<=Math.round(bazar.seller.rating)?'#D97706':'var(--brd2)'}">★</span>`).join('')}</div>`
+                : `<div style="font-size:10px;color:var(--t4);margin-top:2px">Sem avaliações</div>`
+              }
+              <div style="font-size:10px;color:var(--t4);text-transform:uppercase;letter-spacing:.06em;margin-top:2px">Avaliação</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <h4 style="margin-bottom:16px">🔗 Link público da loja</h4>
+        <p style="font-size:13px;margin-bottom:14px">Partilhe este link com os seus clientes:</p>
+        <div class="link-box">
+          <span id="baz-url">${window.location.origin}/bazar.html?id=${esc(bazar.slug||bazar.id)}</span>
+          <button class="btn btn-xs btn-primary" onclick="copyBazarLink()">Copiar</button>
+        </div>
+        <div style="margin-top:16px">
+          <h4 style="margin-bottom:10px">⚡ Acções rápidas</h4>
+          <div class="quick-actions">
+            <button class="qa-btn" onclick="go('my-products.html')"><div class="qa-btn-ico">📦</div><div><div style="font-weight:600">Gerir produtos</div></div></button>
+            <button class="qa-btn" onclick="go('my-orders.html')"><div class="qa-btn-ico">🛒</div><div><div style="font-weight:600">Ver encomendas</div></div></button>
+            <button class="qa-btn" onclick="go('finance.html')"><div class="qa-btn-ico">💰</div><div><div style="font-weight:600">Financeiro</div></div></button>
+          </div>
+        </div>
+      </div>
+    </div>`:`
+    <div class="card" style="max-width:500px;margin:0 auto;text-align:center;padding:40px">
+      <div style="font-size:52px;margin-bottom:16px">🏪</div>
+      <h3 style="margin-bottom:8px">Ainda sem Bazar</h3>
+      <p style="margin-bottom:24px">Crie o seu Bazar agora e comece a vender em Moçambique</p>
+      <button class="btn btn-primary" onclick="openCreateBazar()">+ Criar o meu Bazar</button>
+    </div>`}`;
+
+  if(!bazar) openCreateBazar();
+
+  if(bazar){
+    document.getElementById('logo-input').addEventListener('change', async e=>{
+      const file=e.target.files[0];
+      if(!file) return;
+      const accepted=['image/jpeg','image/jpg','image/png','image/webp'];
+      if(!accepted.includes(file.type)){ toast('Use uma imagem JPG, PNG ou WEBP.','warn'); return; }
+      if(file.size>5*1024*1024){ toast('A imagem deve ter no máximo 5MB.','warn'); return; }
+      const fd=new FormData(); fd.append('logo',file);
+      try{
+        toast('A actualizar foto da loja…','info');
+        const res=await api.putForm('/bazars/me',fd);
+        if(res?.data?.bazar?.logoUrl){
+          toast('Foto da loja actualizada!');
+          setTimeout(()=>location.reload(),600);
+        }
+      }catch(err){ toast(apiErrorMessage(err),'err'); }
+    });
+  }
+}});
+
+function openCreateBazar(){
+  openModal(`<div class="modal-hd"><h3>Criar Bazar</h3><button class="modal-x" onclick="closeModal()">✕</button></div>
+    <div class="fg"><label>Nome da loja *</label><input id="bz-name" placeholder="Ex: Loja do João"></div>
+    <div class="fg"><label>Categoria *</label>
+      <select id="bz-cat">${CATS.map(c=>`<option value="${esc(c.l)}">${esc(c.l)}</option>`).join('')}</select>
+    </div>
+    <div class="fg"><label>Descrição</label><textarea id="bz-desc" rows="3" placeholder="Descreva a sua loja..."></textarea></div>
+    <div class="fg"><label>Localização</label><input id="bz-loc" placeholder="Ex: Maputo, Malhangalene"></div>
+    <div style="display:flex;gap:9px">
+      <button class="btn btn-primary" style="flex:1" onclick="saveBazar(null)">Criar Bazar</button>
+      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+    </div>`);
+}
+function openEditBazar(){
+  const b=null; // Will fetch fresh
+  openModal(`<div class="modal-hd"><h3>Editar Bazar</h3><button class="modal-x" onclick="closeModal()">✕</button></div>
+    <div class="fg"><label>Nome da loja *</label><input id="bz-name" placeholder="Nome da loja"></div>
+    <div class="fg"><label>Categoria *</label>
+      <select id="bz-cat">${CATS.map(c=>`<option value="${esc(c.l)}">${esc(c.l)}</option>`).join('')}</select>
+    </div>
+    <div class="fg"><label>Descrição</label><textarea id="bz-desc" rows="3"></textarea></div>
+    <div class="fg"><label>Localização</label><input id="bz-loc" placeholder="Ex: Maputo"></div>
+    <div style="display:flex;gap:9px">
+      <button class="btn btn-primary" style="flex:1" onclick="saveBazar('edit')">Guardar</button>
+      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+    </div>`);
+  // Pre-fill
+  api.get('/bazars/me').then(r=>{const b=r?.data?.bazar;if(!b)return;
+    document.getElementById('bz-name').value=b.name||'';
+    document.getElementById('bz-cat').value=b.category||'';
+    document.getElementById('bz-desc').value=b.description||'';
+    document.getElementById('bz-loc').value=b.location||'';
+  }).catch(()=>{});
+}
+async function saveBazar(mode){
+  const name=document.getElementById('bz-name').value.trim();
+  const category=document.getElementById('bz-cat').value;
+  const description=document.getElementById('bz-desc').value.trim();
+  const location=document.getElementById('bz-loc').value.trim();
+  if(!name||!category){toast('Preencha os campos obrigatórios.','warn');return;}
+  const btn=document.querySelector('#modal-root .btn-primary');setLoading(btn,true);
+  try{
+    const body={name,category,description,location};
+    if(mode==='edit') await api.put('/bazars/me',body); else await api.post('/bazars',body);
+    closeModal();toast(mode==='edit'?'Bazar actualizado!':'Bazar criado! 🎉');setTimeout(()=>window.location.reload(),700);
+  }catch(e){setLoading(btn,false);toast(apiErrorMessage(e),'err');}
+}
+function copyBazarLink(){
+  const url=document.getElementById('baz-url')?.textContent;
+  if(url){navigator.clipboard.writeText(url).then(()=>toast('Link copiado! 🔗')).catch(()=>toast('Não foi possível copiar.','err'));}
+}
+</script></body></html>

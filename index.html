@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="pt" data-theme="light">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Bazares — Marketplace Moçambicano</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;0,14..32,800;1,14..32,500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header id="topbar"></header>
+<div class="overlay" id="overlay"></div>
+<aside id="sidebar" class="closed"></aside>
+<div id="main"><div id="view" class="pg-body"></div></div>
+<div id="modal-root"></div><div id="toast-root"></div>
+<script src="js/config.js"></script><script src="js/api.js"></script><script src="js/app.js"></script>
+<script>
+initPage({ active:'index.html', onReady: async(user) => {
+  if(user){ window.location.replace('dashboard.html'); return; }
+  let bCount=0, pCount=0;
+  try {
+    const [b,p] = await Promise.allSettled([api.get('/bazars',{limit:1}),api.get('/products',{limit:1})]);
+    bCount = b.status==='fulfilled'?(b.value?.data?.meta?.total||0):0;
+    pCount = p.status==='fulfilled'?(p.value?.data?.meta?.total||0):0;
+  } catch{}
+
+  const IMGS = [
+    'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=300&h=200&fit=crop',
+    'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=300&h=200&fit=crop',
+    'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=300&h=200&fit=crop',
+    'https://images.unsplash.com/photo-1585386959984-a4155224a1ad?w=300&h=200&fit=crop',
+  ];
+
+  document.getElementById('view').innerHTML = `
+  <!-- HERO -->
+  <section class="hero fade-in">
+    <div class="hero-flag"></div>
+    <div class="hero-bg"></div>
+    <div class="hero-glow-green"></div>
+    <div class="hero-glow-gold"></div>
+    <div class="hero-dots"></div>
+    <div class="hero-content">
+      <div class="hero-badge">🇲🇿 &nbsp; Marketplace Moçambicano</div>
+      <h1>O lugar onde<br>Moçambique<br><em>compra e vende.</em></h1>
+      <p class="hero-desc">A plataforma digital criada para o mercado moçambicano — moderna, segura e acessível do Maputo ao Niassa.</p>
+      <div class="hero-btns">
+        <button class="btn btn-gold hero-btn-main" onclick="go('register.html')">Começar — é gratuito</button>
+        <button class="hero-btn-sec" onclick="go('bazars.html')">Explorar Bazares →</button>
+      </div>
+      <div class="hero-stats">
+        <div class="hero-stat"><div class="n">${bCount||'—'}</div><div class="l">Bazares</div></div>
+        <div class="hero-stat"><div class="n">${pCount||'—'}</div><div class="l">Produtos</div></div>
+        <div class="hero-stat"><div class="n">🆓</div><div class="l">Gratuito</div></div>
+      </div>
+      <div class="hero-chips">
+        <div class="hero-chip">🔒 Conta segura</div>
+        <div class="hero-chip">💬 Chat directo</div>
+        <div class="hero-chip">📦 Encomendas</div>
+        <div class="hero-chip">⭐ Avaliações</div>
+        <div class="hero-chip">💰 Referidos</div>
+      </div>
+    </div>
+    <div class="hero-visual">
+      <div class="hero-img-grid">
+        ${IMGS.map(u=>`<div class="hero-img-card"><img src="${u}" alt="" loading="lazy"></div>`).join('')}
+      </div>
+    </div>
+  </section>
+
+  <!-- CATEGORIAS -->
+  <div class="sh-row" style="margin-top:4px">
+    <div><div class="section-pill">📂 Categorias</div><h2 style="margin:0">Explore por categoria</h2></div>
+    <a href="products.html" style="font-size:13px;font-weight:600;color:var(--b-500);text-decoration:none">Ver todos →</a>
+  </div>
+  <div class="cat-strip" id="cat-home" style="margin-bottom:44px"></div>
+
+  <!-- VANTAGENS -->
+  <div style="margin-bottom:44px">
+    <div class="section-pill">✦ Por que escolher?</div>
+    <div class="sh-row" style="margin-bottom:22px">
+      <h2 style="margin:0">Feito para o mercado moçambicano</h2>
+      <a href="register.html" style="font-size:13px;font-weight:600;color:var(--b-500);text-decoration:none">Criar conta →</a>
+    </div>
+    <div class="adv-grid">
+      ${[['🛒','Vender em minutos','Crie o seu Bazar, publique produtos e comece a receber encomendas — sem burocracia.'],
+         ['💬','Chat em tempo real','Comunique directamente com vendedores e compradores dentro da plataforma.'],
+         ['🔒','Plataforma segura','Verificação de email, reputação e histórico transparente de transacções.'],
+         ['⭐','Avaliações reais','Classificações verificadas de compradores reais em cada transacção.'],
+         ['📦','Gestão de encomendas','Do pedido à entrega — acompanhe tudo com notificações em tempo real.'],
+         ['💰','Finanças e referidos','Controle receitas e ganhe comissões ao referir outros utilizadores.']
+      ].map(([ico,t,d])=>`<div class="adv-card"><div class="adv-top-bar"></div><div class="adv-ico">${ico}</div><h4>${t}</h4><p>${d}</p></div>`).join('')}
+    </div>
+  </div>
+
+  <!-- PRODUTOS EM DESTAQUE -->
+  <div style="margin-bottom:44px">
+    <div class="section-pill">🔥 Em destaque</div>
+    <div class="sh-row" style="margin-bottom:22px">
+      <h2 style="margin:0">Produtos recentes</h2>
+      <a href="products.html" style="font-size:13px;font-weight:600;color:var(--b-500);text-decoration:none">Ver todos →</a>
+    </div>
+    <div class="p-grid" id="feat-products">
+      <div style="grid-column:1/-1;text-align:center;padding:40px"><span class="spinner spinner-dark"></span></div>
+    </div>
+  </div>
+
+  <!-- COMO FUNCIONA -->
+  <div style="margin-bottom:44px">
+    <div class="section-pill">🚀 Processo simples</div>
+    <div class="sh-row" style="margin-bottom:22px"><h2 style="margin:0">Comece em quatro passos</h2></div>
+    <div class="how-grid">
+      ${[['1','Registe-se','Crie a sua conta gratuitamente em menos de 2 minutos, como comprador ou vendedor.'],
+         ['2','Abra o seu Bazar','Crie o seu espaço de loja com nome, categoria e descrição personalizados.'],
+         ['3','Publique & negoceie','Liste produtos, receba mensagens directas e feche negócios via chat.'],
+         ['4','Entregue & cresça','Gira encomendas, confirme entregas e construa a sua reputação.']
+      ].map(([n,t,d])=>`<div class="how-card"><div class="how-num">${n}</div><h4>${t}</h4><p>${d}</p></div>`).join('')}
+    </div>
+  </div>
+
+  <!-- CTA -->
+  <div class="cta-banner" style="margin-bottom:0">
+    <div class="cta-flag"></div>
+    <div class="cta-content">
+      <div class="hero-badge" style="margin:0 auto 18px">🇲🇿 &nbsp; Junte-se à comunidade</div>
+      <h2>Pronto para começar?</h2>
+      <p>Milhares de moçambicanos já compram e vendem no Bazares. Crie a sua conta e faça parte disto.</p>
+      <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
+        <button class="btn btn-gold" style="font-size:15px;padding:14px 34px" onclick="go('register.html')">Criar conta gratuita</button>
+        <button class="hero-btn-sec" onclick="go('login.html')">Já tenho conta →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <footer class="site-footer">
+    <div class="footer-shimmer"></div>
+    <div class="footer-top">
+      <div class="footer-brand">
+        <div class="footer-brand-row">
+          <div class="footer-logo-mark">B</div>
+          <div>
+            <div class="footer-logo-txt">BAZ<span>ARES</span></div>
+            <div style="font-size:9px;color:rgba(255,255,255,.3);text-transform:uppercase;letter-spacing:.12em;margin-top:1px">Marketplace Moçambicano</div>
+          </div>
+        </div>
+        <p>A plataforma digital que conecta compradores e vendedores em todo Moçambique — com segurança, simplicidade e orgulho nacional.</p>
+        <div class="footer-social">
+          <button class="footer-soc" title="Facebook">📘</button>
+          <button class="footer-soc" title="Instagram">📸</button>
+          <button class="footer-soc" title="Twitter">🐦</button>
+          <button class="footer-soc" title="YouTube">▶️</button>
+          <button class="footer-soc" title="WhatsApp">💬</button>
+        </div>
+      </div>
+      <div class="footer-col">
+        <h5>Plataforma</h5>
+        <ul>
+          <li><a href="bazars.html">🏪 Ver Bazares</a></li>
+          <li><a href="products.html">📦 Produtos</a></li>
+          <li><a href="register.html">✦ Criar conta</a></li>
+          <li><a href="login.html">🔑 Iniciar sessão</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h5>Vendedores</h5>
+        <ul>
+          <li><a href="register.html">🛒 Abrir Bazar</a></li>
+          <li><a href="my-products.html">📋 Gerir produtos</a></li>
+          <li><a href="finance.html">💰 Financeiro</a></li>
+          <li><a href="referrals.html">🤝 Referidos</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h5>Ajuda & Legal</h5>
+        <ul>
+          <li><a href="support.html">💬 Suporte</a></li>
+          <li><a href="support.html">📖 Como funciona</a></li>
+          <li><a href="support.html">🔒 Privacidade</a></li>
+          <li><a href="support.html">📜 Termos de uso</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-contacts">
+      <div class="footer-contact-item"><div class="footer-ci-icon">📧</div><div><div class="footer-ci-lbl">Email</div><div class="footer-ci-val">bazares09@gmail.com</div></div></div>
+      <div class="footer-contact-item"><div class="footer-ci-icon">📞</div><div><div class="footer-ci-lbl">Telefone</div><div class="footer-ci-val">+258 84 676 1897</div></div></div>
+      <div class="footer-contact-item"><div class="footer-ci-icon">📍</div><div><div class="footer-ci-lbl">Localização</div><div class="footer-ci-val">Maputo, Moçambique</div></div></div>
+      <div class="footer-contact-item"><div class="footer-ci-icon">🕐</div><div><div class="footer-ci-lbl">Suporte</div><div class="footer-ci-val">08h – 20h (dias úteis)</div></div></div>
+    </div>
+    <div class="footer-bottom">
+      <p>© ${new Date().getFullYear()} Bazares · Todos os direitos reservados · 🇲🇿</p>
+      <div class="footer-links">
+        <a href="support.html">Privacidade</a>
+        <a href="support.html">Termos</a>
+        <a href="support.html">Cookies</a>
+        <a href="support.html">Acessibilidade</a>
+      </div>
+    </div>
+  </footer>`;
+
+  // Cat strip
+  document.getElementById('cat-home').innerHTML = CATS.map(c=>
+    `<div class="cat-chip" onclick="go('products.html',{category:'${encodeURIComponent(c.l)}'})"><div class="ci">${c.ico}</div><div class="cl">${c.l.slice(0,10)}</div></div>`).join('');
+
+  // Featured products
+  try {
+    // Usa produtos em destaque (admin-curados) com fallback para os mais recentes
+    let prods = [];
+    const featured = await api.get('/products/featured').catch(()=>null);
+    prods = featured?.data?.products || [];
+    if(!prods.length){ const fallback = await api.get('/products',{limit:8,sort:'new'}).catch(()=>null); prods=fallback?.data?.products||[]; }
+    document.getElementById('feat-products').innerHTML = prods.length
+      ? prods.map(productCard).join('')
+      : '<div class="empty" style="grid-column:1/-1"><div class="empty-ico">📦</div><h3>Sem produtos ainda</h3></div>';
+  } catch { document.getElementById('feat-products').innerHTML='<div class="empty" style="grid-column:1/-1"><div class="empty-ico">📦</div><h3>Não foi possível carregar</h3></div>'; }
+}});
+</script>
+</body></html>

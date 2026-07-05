@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="pt" data-theme="light">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Os meus produtos — Bazares</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;0,14..32,800;1,14..32,500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header id="topbar"></header><div class="overlay" id="overlay"></div><aside id="sidebar" class="closed"></aside>
+<div id="main"><div id="view" class="pg-body"></div></div>
+<div id="modal-root"></div><div id="toast-root"></div>
+<script src="js/config.js"></script><script src="js/api.js"></script><script src="js/app.js"></script>
+<script>
+let _products=[], _page=1;
+
+initPage({ active:'my-products.html', requireAuth:true, roles:['SELLER'], onReady: async()=>{
+  document.getElementById('view').innerHTML=`
+    <div class="pg-hero">
+      <div class="pg-hero-content">
+        <div class="section-pill">📦 Catálogo</div>
+        <h1>Os meus Produtos</h1>
+        <p>Gerencie o seu catálogo de produtos</p>
+        <div class="pg-hero-actions">
+          <button class="btn btn-gold btn-sm" onclick="openAddModal()">+ Adicionar produto</button>
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap">
+      <div style="position:relative;flex:1;min-width:160px">
+        <span style="position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--t4)">🔍</span>
+        <input id="psrch" placeholder="Pesquisar produtos..." style="padding-left:40px;border-radius:var(--pill)">
+      </div>
+      <select id="pcat" style="width:180px;border-radius:var(--pill)"><option value="">Todas as categorias</option></select>
+      <button class="btn btn-primary btn-sm" onclick="openAddModal()">+ Produto</button>
+    </div>
+    <div id="prod-grid" class="p-grid"></div>
+    <div id="prod-pagination"></div>`;
+
+  const sel=document.getElementById('pcat');
+  CATS.forEach(c=>sel.insertAdjacentHTML('beforeend',`<option value="${esc(c.l)}">${esc(c.l)}</option>`));
+  let t;
+  document.getElementById('psrch').addEventListener('input',()=>{clearTimeout(t);t=setTimeout(()=>loadMyProducts(1),350);});
+  document.getElementById('pcat').addEventListener('change',()=>loadMyProducts(1));
+  await loadMyProducts(1);
+}});
+
+async function loadMyProducts(page=1){
+  _page=page;
+  const grid=document.getElementById('prod-grid');
+  grid.innerHTML=`<div style="text-align:center;padding:40px;grid-column:1/-1"><span class="spinner spinner-dark"></span></div>`;
+  const q=document.getElementById('psrch').value.trim();
+  const cat=document.getElementById('pcat').value;
+  try{
+    const res=await api.get('/products/mine',{q:q||undefined,category:cat||undefined,page,limit:24});
+    _products=res?.data?.products||[];
+    const meta=res?.data?.meta||{};
+    grid.innerHTML=_products.length?_products.map(myProductCard).join(''):`<div class="empty" style="grid-column:1/-1"><div class="empty-ico">📦</div><h3>Sem produtos ainda</h3><p>Adicione o seu primeiro produto</p><button class="btn btn-primary btn-sm" style="margin-top:14px" onclick="openAddModal()">+ Adicionar produto</button></div>`;
+    renderPagination('prod-pagination',meta,loadMyProducts);
+  } catch(e){ grid.innerHTML=`<div class="empty" style="grid-column:1/-1"><div class="empty-ico">⚠</div><h3>${esc(apiErrorMessage(e))}</h3></div>`; }
+}
+
+function myProductCard(p){
+  return `<div class="p-card">
+    <div class="p-img" onclick="go('product.html',{id:'${p.id}'})">
+      ${p.images?.[0]?.url?`<img src="${esc(p.images[0].url)}" alt="${esc(p.name)}" loading="lazy">`:`<span style="color:var(--t4);font-size:12px">Sem foto</span>`}
+    </div>
+    <div class="p-body">
+      <div class="p-name">${esc(p.name)}</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px">
+        <div class="p-price">${fmtMT(p.price)}</div>
+        <span style="font-size:10px;font-weight:600;color:${p.stock>0?'var(--grn)':'var(--red)'}">${p.stock>0?p.stock+' un.':'Esgotado'}</span>
+      </div>
+      <div style="display:flex;gap:7px;margin-top:10px">
+        <button class="btn btn-soft btn-xs" style="flex:1" onclick="openEditModal('${p.id}')">✏ Editar</button>
+        <button class="btn btn-xs" style="flex:1;background:${p.stock>0?'var(--amber-bg,#FEF3C7)':'var(--grn-bg,#D1FAE5)'};color:${p.stock>0?'#92400E':'var(--grn)'}" onclick="toggleProductStock('${p.id}')">${p.stock>0?'📦 Esgotado':'✅ Disponível'}</button>
+        <button class="btn btn-xs" style="background:var(--red-bg);color:var(--red)" onclick="confirmDelete('${p.id}')">🗑</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function openAddModal(){ buildProductModal(null); }
+function openEditModal(id){ const p=_products.find(x=>x.id===id); if(p) buildProductModal(p); }
+
+function buildProductModal(p){
+  const isEdit=!!p;
+  openModal(`
+    <div class="modal-hd"><h3>${isEdit?'Editar':'Adicionar'} Produto</h3><button class="modal-x" onclick="closeModal()">✕</button></div>
+    <div class="fg"><label>Nome do produto *</label><input id="pm-name" value="${esc(p?.name||'')}" placeholder="Nome do produto"></div>
+    <div class="fg"><label>Descrição *</label><textarea id="pm-desc" rows="3" placeholder="Descreva o produto...">${esc(p?.description||'')}</textarea></div>
+    <div class="row2">
+      <div class="fg"><label>Preço (MT) *</label><input type="number" id="pm-price" value="${p?.price||''}" min="0" step="0.01" placeholder="0"></div>
+      <div class="fg"><label>Stock</label><input type="number" id="pm-stock" value="${p?.stock??''}" min="0" placeholder="0"></div>
+    </div>
+    <div class="fg"><label>Categoria *</label>
+      <select id="pm-cat">${CATS.map(c=>`<option value="${esc(c.l)}"${p?.category===c.l?' selected':''}>${esc(c.l)}</option>`).join('')}</select>
+    </div>
+    <div class="row2">
+      <div class="fg"><label>Localização</label><input id="pm-loc" value="${esc(p?.location||'')}" placeholder="Ex: Maputo"></div>
+      <div class="fg"><label>Condição</label>
+        <select id="pm-cond">${['Novo','Usado - Bom estado','Usado - Estado razoável','Para peças'].map(v=>`<option${p?.condition===v?' selected':''}>${v}</option>`).join('')}</select>
+      </div>
+    </div>
+    <div class="row2">
+      <div class="fg"><label>Cor</label><input id="pm-color" value="${esc(p?.color||'')}" placeholder="Ex: Preto"></div>
+      <div class="fg"><label>Tamanho</label><input id="pm-size" value="${esc(p?.size||'')}" placeholder="Ex: M / 42"></div>
+    </div>
+    <div class="fg"><label>Método de entrega</label>
+      <select id="pm-del">${['Entrega ao domicílio','Recolha no local','Envio por correio','Combinado'].map(v=>`<option${p?.deliveryMethod===v?' selected':''}>${v}</option>`).join('')}</select>
+    </div>
+    <div class="fg"><label>Imagens do produto *</label>
+      <div class="imgup-drop" id="imgup-drop" onclick="document.getElementById('imgup-input').click()">
+        <div class="ico">📷</div>
+        <div><strong>Toque para escolher fotos</strong> ou arraste aqui</div>
+        <small>JPG, PNG ou WEBP · até 20 imagens · a primeira é a capa</small>
+      </div>
+      <input type="file" id="imgup-input" accept="image/jpeg,image/jpg,image/png,image/webp" multiple hidden>
+      <div class="imgup-count"><span>Imagens seleccionadas</span><b id="imgup-counter">0/20</b></div>
+      <div class="imgup-grid" id="imgup-grid"></div>
+      ${isEdit?'<small style="display:block;color:var(--t4);margin-top:6px;font-size:11.5px">Pode arrastar para reordenar. Se adicionar novas fotos nesta gravação, elas ficam sempre depois das já existentes.</small>':''}
+    </div>
+    <div style="display:flex;gap:9px;padding-top:4px">
+      <button class="btn btn-primary" style="flex:1" onclick="saveProduct(${isEdit?`'${p.id}'`:'null'})">${isEdit?'Guardar alterações':'Publicar produto'}</button>
+      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+    </div>`,true);
+  initImageUploader(p);
+}
+
+/* ── IMAGE UPLOADER ──────────────────────────────────────────────
+   _imgState items: { kind:'existing', id, url }  → already saved on server
+                     { kind:'new', file, previewUrl } → local file, not uploaded yet
+   Order in the array = display/cover order. Item 0 is always the cover. */
+let _imgState=[];
+const MAX_IMAGES=20;
+
+function initImageUploader(p){
+  _imgState = (p?.images||[]).map(img=>({kind:'existing', id:img.id, url:img.url}));
+  renderImgGrid();
+
+  const drop=document.getElementById('imgup-drop');
+  const input=document.getElementById('imgup-input');
+
+  input.addEventListener('change', e=>{ addFiles(e.target.files); input.value=''; });
+
+  drop.addEventListener('dragover', e=>{ e.preventDefault(); drop.classList.add('drag-over'); });
+  drop.addEventListener('dragleave', ()=> drop.classList.remove('drag-over'));
+  drop.addEventListener('drop', e=>{
+    e.preventDefault(); drop.classList.remove('drag-over');
+    if(e.dataTransfer?.files?.length) addFiles(e.dataTransfer.files);
+  });
+}
+
+/* Reduz uma imagem antes do envio: redimensiona para no máximo 1600px no
+   lado maior e reexporta como JPEG com qualidade 0.82. Isto não altera o
+   que o utilizador vê no preview (que continua a usar o ficheiro original
+   via URL.createObjectURL) — só comprime no momento de publicar, para
+   tornar o envio mais rápido e fiável em redes móveis mais lentas. */
+function compressImage(file, maxSize=1600, quality=0.82){
+  return new Promise(resolve=>{
+    // GIFs/animados ou ficheiros já pequenos não compensam reprocessar.
+    if(file.size < 350*1024){ resolve(file); return; }
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = ()=>{
+      URL.revokeObjectURL(url);
+      let {width, height} = img;
+      if(width>height && width>maxSize){ height=Math.round(height*maxSize/width); width=maxSize; }
+      else if(height>maxSize){ width=Math.round(width*maxSize/height); height=maxSize; }
+      const canvas=document.createElement('canvas');
+      canvas.width=width; canvas.height=height;
+      const ctx=canvas.getContext('2d');
+      ctx.drawImage(img,0,0,width,height);
+      canvas.toBlob(blob=>{
+        if(!blob || blob.size>=file.size){ resolve(file); return; } // não usa se não compensar
+        const compressed=new File([blob], file.name.replace(/\.\w+$/,'')+'.jpg', {type:'image/jpeg'});
+        resolve(compressed);
+      }, 'image/jpeg', quality);
+    };
+    img.onerror = ()=>{ URL.revokeObjectURL(url); resolve(file); }; // falha a comprimir → usa original
+    img.src = url;
+  });
+}
+
+function addFiles(fileList){
+  const accepted=['image/jpeg','image/jpg','image/png','image/webp'];
+  const files=Array.from(fileList);
+  let rejected=0, tooBig=0;
+  for(const file of files){
+    if(_imgState.length>=MAX_IMAGES){ toast(`Máximo de ${MAX_IMAGES} imagens por anúncio.`,'warn'); break; }
+    if(!accepted.includes(file.type)){ rejected++; continue; }
+    if(file.size>10*1024*1024){ tooBig++; continue; }
+    _imgState.push({kind:'new', file, previewUrl:URL.createObjectURL(file)});
+  }
+  if(rejected) toast('Algumas imagens foram ignoradas (formato não suportado). Use JPG, PNG ou WEBP.','warn');
+  if(tooBig) toast('Algumas imagens excedem 10MB e foram ignoradas.','warn');
+  renderImgGrid();
+}
+
+function removeImg(idx){
+  const item=_imgState[idx];
+  if(item.kind==='existing'){
+    // Remove imediatamente do servidor — é uma imagem já publicada.
+    api.delete(`/products/images/${item.id}`).catch(()=>{ toast('Não foi possível remover esta imagem do servidor.','err'); });
+  } else if(item.previewUrl){
+    URL.revokeObjectURL(item.previewUrl);
+  }
+  _imgState.splice(idx,1);
+  renderImgGrid();
+}
+
+let _dragIdx=null;
+function renderImgGrid(){
+  const grid=document.getElementById('imgup-grid');
+  const counter=document.getElementById('imgup-counter');
+  if(!grid) return;
+  counter.textContent=`${_imgState.length}/${MAX_IMAGES}`;
+  grid.innerHTML=_imgState.map((item,i)=>{
+    const src=item.kind==='existing'?item.url:item.previewUrl;
+    return `<div class="imgup-thumb" draggable="true" data-idx="${i}">
+      ${_imgState.length>1?'<span class="imgup-grip">⠿</span>':''}
+      <img src="${esc(src)}" alt="">
+      <button type="button" class="imgup-rm" onclick="event.stopPropagation();removeImg(${i})">✕</button>
+      ${i===0?'<div class="imgup-cover">Capa</div>':''}
+    </div>`;
+  }).join('');
+
+  grid.querySelectorAll('.imgup-thumb').forEach(el=>{
+    el.addEventListener('dragstart', e=>{ _dragIdx=+el.dataset.idx; el.classList.add('dragging'); });
+    el.addEventListener('dragend', ()=>{ el.classList.remove('dragging'); grid.querySelectorAll('.drag-target').forEach(x=>x.classList.remove('drag-target')); });
+    el.addEventListener('dragover', e=>{ e.preventDefault(); el.classList.add('drag-target'); });
+    el.addEventListener('dragleave', ()=> el.classList.remove('drag-target'));
+    el.addEventListener('drop', e=>{
+      e.preventDefault();
+      const targetIdx=+el.dataset.idx;
+      if(_dragIdx===null||_dragIdx===targetIdx) return;
+      const [moved]=_imgState.splice(_dragIdx,1);
+      _imgState.splice(targetIdx,0,moved);
+      _dragIdx=null;
+      renderImgGrid();
+    });
+  });
+}
+
+async function saveProduct(id){
+  const name=document.getElementById('pm-name').value.trim();
+  const description=document.getElementById('pm-desc').value.trim();
+  const price=parseFloat(document.getElementById('pm-price').value);
+  const stock=parseInt(document.getElementById('pm-stock').value)||0;
+  const category=document.getElementById('pm-cat').value;
+  const location=document.getElementById('pm-loc').value.trim();
+  const condition=document.getElementById('pm-cond').value;
+  const color=document.getElementById('pm-color').value.trim();
+  const size=document.getElementById('pm-size').value.trim();
+  const deliveryMethod=document.getElementById('pm-del').value;
+
+  if(!name||!description||!price||!category){toast('Preencha os campos obrigatórios (*).','warn');return;}
+  if(_imgState.length===0){toast('Adicione pelo menos uma imagem do produto.','warn');return;}
+
+  const btn=document.querySelector('#modal-root .btn-primary');
+  setLoading(btn,true);
+  try{
+    const fd=new FormData();
+    fd.append('name',name); fd.append('description',description); fd.append('price',price);
+    fd.append('stock',stock); fd.append('category',category); fd.append('location',location);
+    fd.append('condition',condition); fd.append('color',color); fd.append('size',size);
+    fd.append('deliveryMethod',deliveryMethod);
+
+    // Apenas os ficheiros novos vão como multipart — as imagens já existentes
+    // (kind:'existing') já estão no servidor e só precisam de reordenação.
+    // Cada ficheiro é primeiro reduzido (redimensionado/comprimido) para
+    // tornar o envio mais rápido e fiável em redes móveis mais lentas —
+    // isto não afecta o que já viu no preview, só o ficheiro que é enviado.
+    const newFiles=_imgState.filter(it=>it.kind==='new');
+    if(newFiles.length){
+      toast(`A preparar ${newFiles.length} imagem${newFiles.length>1?'ns':''} para envio…`,'info');
+    }
+    for(const it of newFiles){
+      const compressed = await compressImage(it.file);
+      fd.append('images', compressed);
+    }
+
+    let savedId=id;
+    if(id){
+      await api.putForm(`/products/${id}`,fd);
+    } else {
+      const res=await api.postForm('/products',fd);
+      savedId=res?.data?.product?.id;
+    }
+
+    // Persistir a ordem final. As imagens novas são sempre anexadas pelo
+    // servidor a seguir às existentes, por isso só conseguimos reordenar
+    // com exactidão quando não há imagens novas nesta gravação (a posição
+    // relativa entre "existentes" e "novas" não é controlável pelo cliente).
+    const existingIds=_imgState.filter(it=>it.kind==='existing').map(it=>it.id);
+    if(id && existingIds.length>1 && newFiles.length===0){
+      await api.patch(`/products/${id}/images/reorder`,{imageIds:existingIds}).catch(()=>{});
+    }
+
+    closeModal(); toast(id?'Produto actualizado!':'Produto publicado! 🎉'); await loadMyProducts(_page);
+  }catch(e){setLoading(btn,false);toast(apiErrorMessage(e),'err');}
+}
+
+async function toggleProductStock(id){
+  try{
+    await api.patch(`/products/${id}/stock`,{});
+    await loadMyProducts(_page);
+  }catch(e){ toast(apiErrorMessage(e),'err'); }
+}
+
+async function confirmDelete(id){
+  openModal(`<div class="modal-hd"><h3>Eliminar produto</h3><button class="modal-x" onclick="closeModal()">✕</button></div>
+    <p style="margin-bottom:20px">Tem a certeza que deseja eliminar este produto? Esta acção é irreversível.</p>
+    <div style="display:flex;gap:9px">
+      <button class="btn btn-danger" style="flex:1" onclick="deleteProduct('${id}')">Eliminar</button>
+      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+    </div>`);
+}
+async function deleteProduct(id){
+  try{await api.delete(`/products/${id}`);closeModal();toast('Produto eliminado.','info');await loadMyProducts(_page);}
+  catch(e){toast(apiErrorMessage(e),'err');}
+}
+</script></body></html>

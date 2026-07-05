@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="pt" data-theme="light">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dashboard — Bazares</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;0,14..32,800;1,14..32,500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header id="topbar"></header><div class="overlay" id="overlay"></div><aside id="sidebar" class="closed"></aside>
+<div id="main"><div id="view" class="pg-body"></div></div>
+<div id="modal-root"></div><div id="toast-root"></div>
+<script src="js/config.js"></script><script src="js/api.js"></script><script src="js/app.js"></script>
+<script>
+initPage({ active:'dashboard.html', requireAuth:true, onReady: async(user) => {
+  const view = document.getElementById('view');
+  view.innerHTML='<div style="text-align:center;padding:60px"><span class="spinner spinner-dark"></span></div>';
+  try {
+    if(user.role==='ADMIN'){ window.location.replace('admin.html'); return; }
+    if(user.role==='SELLER'){ await renderSellerDash(user); return; }
+    if(user.role==='REVENDEDOR'){ await renderRevDash(user); return; }
+    await renderBuyerDash(user);
+  } catch (err) {
+    // Rede protectora: se algo inesperado falhar a meio do render (em vez
+    // de deixar o spinner preso para sempre em silêncio), mostra um erro
+    // visível com opção de tentar de novo.
+    console.error('[dashboard] falha ao renderizar:', err);
+    view.innerHTML = `<div class="pg-hero"><div class="pg-hero-content"><h1>Não foi possível carregar o dashboard</h1><p>Ocorreu um erro inesperado. Tente novamente.</p><div class="pg-hero-actions"><button class="btn btn-gold btn-sm" onclick="location.reload()">🔄 Tentar novamente</button></div></div></div>`;
+  }
+}});
+
+async function renderBuyerDash(user) {
+  const view = document.getElementById('view');
+  let orders=[], products=[], stats=null;
+  try {
+    const [o,p,s] = await Promise.allSettled([
+      api.get('/orders/mine',{limit:4}),
+      api.get('/products/featured'),
+      api.get('/users/me/stats')
+    ]);
+    orders = o.status==='fulfilled'?(o.value?.data?.orders||[]):[];
+    // Featured primeiro, fallback para recentes
+    products = p.status==='fulfilled'?(p.value?.data?.products||[]):[];
+    if(!products.length){ const r2=await api.get('/products',{limit:12,sort:'new'}).catch(()=>null); products=r2?.data?.products||[]; }
+    stats = s.status==='fulfilled'?s.value?.data:null;
+  } catch{}
+
+  view.innerHTML = `
+    <div class="pg-hero">
+      <div class="pg-hero-content">
+        <div class="section-pill">👋 Bem-vindo</div>
+        <h1>Olá, ${esc(user.name.split(' ')[0])}!</h1>
+        <p>Painel de comprador — explore, compre e acompanhe as suas encomendas.</p>
+        <div class="pg-hero-actions">
+          <button class="btn btn-gold btn-sm" onclick="go('products.html')">🛍 Explorar produtos</button>
+          <button class="btn btn-ghost btn-sm" style="color:#fff;border-color:rgba(255,255,255,.25)" onclick="go('bazars.html')">🏪 Ver Bazares</button>
+        </div>
+      </div>
+    </div>
+    ${stats?`<div class="stats-row" style="margin-bottom:18px">
+      <div class="stat"><div class="val">${stats.totalOrders}</div><div class="lbl">Encomendas</div></div>
+      <div class="stat"><div class="val">${stats.totalFavorites}</div><div class="lbl">Favoritos</div></div>
+      <div class="stat"><div class="val">${stats.cartCount}</div><div class="lbl">No carrinho</div></div>
+      <div class="stat acc" style="cursor:pointer" onclick="go('wallet.html')"><div class="stat-accent-bar" style="background:var(--g-gold)"></div><div class="val">${fmtMT(stats.walletBalance||0)}</div><div class="lbl">Saldo Wallet</div></div>
+    </div>`:''}
+    <div class="widget-grid">
+      <div class="card">
+        <h4 style="margin-bottom:16px;display:flex;align-items:center;gap:8px"><span>🛒</span> Encomendas recentes</h4>
+        ${orders.length ? orders.map(o=>`
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:11px 12px;background:var(--surf3);border-radius:var(--r);margin-bottom:8px;border:1px solid var(--brd)">
+            <div><div style="font-weight:600;font-size:13px">${esc(o.items?.[0]?.name||'')} ×${o.items?.[0]?.qty||''}</div>
+            <div style="font-size:10px;color:var(--t4);margin-top:2px">Ref: ${o.id.slice(0,8)} · ${fmtDate(o.createdAt)}</div></div>
+            ${stBadge(o.status)}
+          </div>`).join('')
+          : '<div class="empty" style="padding:24px"><div class="empty-ico">📬</div><p>Sem encomendas ainda</p></div>'}
+        <button class="btn btn-ghost btn-sm btn-block" style="margin-top:10px" onclick="go('my-orders.html')">Ver todas as encomendas →</button>
+      </div>
+      <div class="card">
+        <h4 style="margin-bottom:16px">⚡ Acções rápidas</h4>
+        <div class="quick-actions">
+          <button class="qa-btn" onclick="go('products.html')"><div class="qa-btn-ico">🛍</div><div><div style="font-weight:600">Explorar produtos</div><div style="font-size:11px;color:var(--t4)">Navegue por todos os produtos</div></div></button>
+          <button class="qa-btn" onclick="go('bazars.html')"><div class="qa-btn-ico">🏪</div><div><div style="font-weight:600">Ver Bazares</div><div style="font-size:11px;color:var(--t4)">Descubra as nossas lojas</div></div></button>
+          <button class="qa-btn" onclick="go('cart.html')"><div class="qa-btn-ico">🛒</div><div><div style="font-weight:600">O meu carrinho</div><div style="font-size:11px;color:var(--t4)">Itens guardados</div></div></button>
+          <button class="qa-btn" onclick="go('favorites.html')"><div class="qa-btn-ico">❤️</div><div><div style="font-weight:600">Favoritos</div><div style="font-size:11px;color:var(--t4)">Produtos que salvou</div></div></button>
+          <button class="qa-btn" onclick="go('chat.html')"><div class="qa-btn-ico">💬</div><div><div style="font-weight:600">Mensagens</div><div style="font-size:11px;color:var(--t4)">Fale com vendedores</div></div></button>
+          <button class="qa-btn" onclick="go('wallet.html')"><div class="qa-btn-ico">💼</div><div><div style="font-weight:600">A minha Wallet</div><div style="font-size:11px;color:var(--t4)">Saldo, depósitos e transferências</div></div></button>
+        </div>
+      </div>
+    </div>
+    <div class="sh-row" style="margin-top:8px">
+      <h2>Descobrir produtos</h2>
+      <a href="products.html" style="font-size:13px;font-weight:600;color:var(--b-500);text-decoration:none">Ver todos →</a>
+    </div>
+    <div class="p-grid">${products.map(productCard).join('')||'<div class="empty" style="grid-column:1/-1"><div class="empty-ico">📦</div><h3>Sem produtos</h3></div>'}</div>`;
+}
+
+async function renderSellerDash(user) {
+  const view = document.getElementById('view');
+  let bazar=null, orders=[];
+  try { bazar=(await api.get('/bazars/me'))?.data?.bazar; } catch{ bazar=false; }
+  if(!bazar){
+    view.innerHTML=`<div class="pg-hero"><div class="pg-hero-content"><h1>Criar o seu Bazar</h1><p>Ainda não tem um Bazar. Crie o seu espaço de venda agora.</p><div class="pg-hero-actions"><button class="btn btn-gold btn-sm" onclick="go('my-bazar.html')">🏪 Criar Bazar agora</button></div></div></div>`;
+    return;
+  }
+  // As 3 chamadas abaixo são independentes entre si — disparam em paralelo
+  // em vez de em sequência. Antes, se o backend estivesse lento (cold
+  // start no Railway, por exemplo), cada `await` sequencial podia levar
+  // até ~1 min (timeout + retries do api.js), somando vários minutos de
+  // spinner. Em paralelo, o pior caso é o tempo da chamada mais lenta,
+  // não a soma de todas.
+  let unread=0, paymentInfo={name:'José Jeque',number:'84 676 1897'}, walletBalance=0;
+  const [ordersRes, unreadRes, finRes] = await Promise.allSettled([
+    api.get('/orders/received',{limit:100}),
+    api.get('/chat/unread-count'),
+    api.get('/finance/me',{limit:1})
+  ]);
+  orders = ordersRes.status==='fulfilled' ? (ordersRes.value?.data?.orders||[]) : [];
+  unread = unreadRes.status==='fulfilled' ? (unreadRes.value?.data?.count||0) : 0;
+  if (finRes.status==='fulfilled') {
+    const fin = finRes.value?.data;
+    if(fin?.paymentInfo) paymentInfo=fin.paymentInfo;
+    if(fin?.walletBalance!=null) walletBalance=fin.walletBalance;
+  }
+
+  const rev=orders.filter(o=>o.status==='ENTREGUE').reduce((s,o)=>s+o.total,0);
+  const counts={
+    aguardando: orders.filter(o=>o.status==='PENDENTE').length,
+    confirmados: orders.filter(o=>o.status==='ACEITE'||o.status==='EM_PREPARACAO').length,
+    enviados: orders.filter(o=>o.status==='EM_ENTREGA').length,
+    entregues: orders.filter(o=>o.status==='ENTREGUE').length,
+    cancelados: orders.filter(o=>o.status==='CANCELADA').length,
+  };
+  const FEE=150, pf=bazar.pendingFees||0;
+  const firstName=esc(user.name.split(' ')[0]);
+  const avatarHtml = userPhoto(user)
+    ? `<img src="${esc(userPhoto(user))}" alt="" style="width:46px;height:46px;border-radius:50%;object-fit:cover;border:2px solid var(--b-200)">`
+    : avatar(user.name,46);
+
+  view.innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px;gap:12px">
+      <div style="display:flex;align-items:center;gap:12px;min-width:0">
+        ${avatarHtml}
+        <div style="min-width:0">
+          <h1 style="font-size:21px;margin-bottom:2px">Olá, ${firstName}! 👋</h1>
+          <p style="font-size:12.5px;color:var(--t3)">Bem-vindo ao seu dashboard</p>
+        </div>
+      </div>
+      <button class="btn-icon" onclick="go('notifications.html')" style="position:relative;flex-shrink:0" aria-label="Notificações">🔔</button>
+    </div>
+
+    <div class="wallet-card">
+      <div class="wallet-card-top">
+        <div>
+          <div class="wallet-label">
+            💼 Saldo da Wallet
+            <button class="wallet-eye" id="wb-eye" onclick="toggleWalletBalance()" aria-label="Mostrar/ocultar saldo">👁️</button>
+          </div>
+          <div class="wallet-balance" id="wb-amount" data-value="${fmtMT(walletBalance)}">${fmtMT(walletBalance)}</div>
+        </div>
+        <div class="wallet-ico">💰</div>
+      </div>
+      <div class="wallet-actions">
+        <button class="wallet-act-btn primary" onclick="go('wallet.html',{action:'pay'})">💳 Pagar comissão</button>
+        <button class="wallet-act-btn" onclick="go('wallet-history.html')">📜 Histórico</button>
+      </div>
+      ${pf>0?`<div class="wallet-warn"><span>${pf>=FEE?'⚠️':'ℹ️'}</span><div>Contribuição pendente: <strong>${fmtMT(pf)}</strong> de ${fmtMT(FEE)}${pf>=FEE?' — pague agora para continuar a vender.':'.'}</div></div>`:''}
+    </div>
+
+    <div class="sh-row" style="margin-top:4px;margin-bottom:10px"><h3 style="font-size:14px">Resumo do seu negócio</h3><a href="my-bazar.html" style="font-size:12.5px;font-weight:600;color:var(--b-500)">Ver detalhes →</a></div>
+    <div class="biz-stats">
+      <div class="biz-stat"><div class="n">${bazar._count?.products ?? 0}</div><div class="l">Produtos</div></div>
+      <div class="biz-stat"><div class="n">${bazar._count?.orders ?? 0}</div><div class="l">Pedidos</div></div>
+      <div class="biz-stat"><div class="n">${fmtMT(rev)}</div><div class="l">Faturado</div></div>
+      <div class="biz-stat"><div class="n">${(bazar.rating||0).toFixed(1)} ⭐</div><div class="l">Avaliação</div></div>
+    </div>
+
+    <div class="sh-row" style="margin-top:4px;margin-bottom:10px"><h3 style="font-size:14px">Meus pedidos</h3><a href="my-orders.html" style="font-size:12.5px;font-weight:600;color:var(--b-500)">Ver todos →</a></div>
+    <div class="order-pills">
+      <div class="order-pill" onclick="go('my-orders.html',{status:'PENDENTE'})">
+        ${counts.aguardando?`<span class="badge-dot">${counts.aguardando}</span>`:''}
+        <div class="order-pill-ico" style="background:var(--amb-bg);color:var(--amb)">⏳</div><span>Aguardando</span>
+      </div>
+      <div class="order-pill" onclick="go('my-orders.html',{status:'ACEITE'})">
+        ${counts.confirmados?`<span class="badge-dot">${counts.confirmados}</span>`:''}
+        <div class="order-pill-ico" style="background:var(--blu-bg);color:var(--blu)">✅</div><span>Confirmados</span>
+      </div>
+      <div class="order-pill" onclick="go('my-orders.html',{status:'EM_ENTREGA'})">
+        ${counts.enviados?`<span class="badge-dot">${counts.enviados}</span>`:''}
+        <div class="order-pill-ico" style="background:var(--n-800);color:#fff">🚚</div><span>Enviados</span>
+      </div>
+      <div class="order-pill" onclick="go('my-orders.html',{status:'ENTREGUE'})">
+        ${counts.entregues?`<span class="badge-dot">${counts.entregues}</span>`:''}
+        <div class="order-pill-ico" style="background:var(--grn-bg);color:var(--grn)">✔️</div><span>Entregues</span>
+      </div>
+      <div class="order-pill" onclick="go('my-orders.html',{status:'CANCELADA'})">
+        ${counts.cancelados?`<span class="badge-dot">${counts.cancelados}</span>`:''}
+        <div class="order-pill-ico" style="background:var(--red-bg);color:var(--red)">✕</div><span>Cancelados</span>
+      </div>
+    </div>
+
+    <h3 style="font-size:14px;margin-bottom:10px">Ações rápidas</h3>
+    <div class="qa-grid">
+      <div class="qa-tile" onclick="go('my-products.html',{action:'new'})"><div class="qa-tile-ico" style="background:var(--g-green)">➕</div><span>Adicionar produto</span></div>
+      <div class="qa-tile" onclick="go('my-products.html')"><div class="qa-tile-ico" style="background:var(--n-700)">📦</div><span>Meus produtos</span></div>
+      <div class="qa-tile" onclick="go('chat.html')">
+        ${unread?`<span class="badge-dot">${unread}</span>`:''}
+        <div class="qa-tile-ico" style="background:var(--blu)">💬</div><span>Mensagens</span>
+      </div>
+      <div class="qa-tile" onclick="go('favorites.html')"><div class="qa-tile-ico" style="background:#DB2777">❤️</div><span>Favoritos</span></div>
+    </div>
+
+    <div class="premium-banner">
+      <div class="premium-banner-txt">
+        <b>Seja Premium</b>
+        <p>Destaque os seus produtos e venda muito mais!</p>
+        <button class="premium-banner-btn" onclick="notifyPremiumSoon()">👑 Upgrade agora</button>
+      </div>
+      <div class="premium-banner-photo-wrap">
+        <div class="premium-banner-photo" style="background:var(--g-green);display:flex;align-items:center;justify-content:center;font-size:26px">🧑🏾‍💼</div>
+        <div class="premium-banner-ico">👑</div>
+      </div>
+    </div>`;
+
+  mountBottomNav('home', 'SELLER', unread);
+}
+
+// Alterna entre mostrar o saldo real e ocultá-lo (útil em espaços públicos).
+// Guarda a preferência só na sessão — não persiste entre visitas por design.
+let _wbHidden = false;
+function toggleWalletBalance() {
+  _wbHidden = !_wbHidden;
+  const el = document.getElementById('wb-amount');
+  if (!el) return;
+  el.textContent = _wbHidden ? '••••••' : el.dataset.value;
+}
+
+// A funcionalidade Premium ainda não existe no backend — em vez de um
+// botão que finge funcionar (como os de login social), avisamos
+// claramente que está a caminho, para não quebrar confiança.
+function notifyPremiumSoon() {
+  toast('Assinatura Premium está a caminho — em breve por aqui! 👑', 'info', 4000);
+}
+
+async function renderRevDash(user) {
+  const view = document.getElementById('view');
+  let stats=null;
+  try { stats=(await api.get('/revendedor/me/referrals'))?.data; } catch{}
+  view.innerHTML=`
+    <div class="pg-hero"><div class="pg-hero-content">
+      <div class="section-pill">🤝 Revendedor</div>
+      <h1>Painel Revendedor</h1>
+      <p>Gira os seus vendedores e acompanhe as suas comissões.</p>
+      <div class="pg-hero-actions">
+        <button class="btn btn-gold btn-sm" onclick="go('referrals.html')">🔗 Partilhar link</button>
+      </div>
+    </div></div>
+    <div class="stats-row">
+      <div class="stat acc"><div class="stat-accent-bar" style="background:var(--g-green)"></div><div class="val">${stats?.stats?.directReferrals??'—'}</div><div class="lbl">Vendedores</div></div>
+      <div class="stat"><div class="stat-accent-bar" style="background:var(--g-gold)"></div><div class="val">${stats?fmtMT(stats.stats.totalSalesVolume):'—'}</div><div class="lbl">Volume total</div></div>
+    </div>
+    <div class="quick-actions" style="max-width:360px">
+      <button class="qa-btn" onclick="go('referrals.html')"><div class="qa-btn-ico">🔗</div><div><div style="font-weight:600">Partilhar link de referência</div></div></button>
+      <button class="qa-btn" onclick="go('my-sellers.html')"><div class="qa-btn-ico">👥</div><div><div style="font-weight:600">Gerir vendedores</div></div></button>
+      <button class="qa-btn" onclick="go('rev-finance.html')"><div class="qa-btn-ico">📊</div><div><div style="font-weight:600">Ver estatísticas</div></div></button>
+      <button class="qa-btn" onclick="go('wallet.html')"><div class="qa-btn-ico">💼</div><div><div style="font-weight:600">A minha Wallet</div></div></button>
+    </div>`;
+}
+</script>
+</body></html>

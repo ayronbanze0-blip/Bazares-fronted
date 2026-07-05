@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="pt" data-theme="light">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Produto — Bazares</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;0,14..32,800;1,14..32,500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header id="topbar"></header><div class="overlay" id="overlay"></div><aside id="sidebar" class="closed"></aside>
+<div id="main"><div id="view" class="pg-body"><div style="text-align:center;padding:60px"><span class="spinner spinner-dark"></span></div></div></div>
+<div id="modal-root"></div><div id="toast-root"></div>
+<script src="js/config.js"></script><script src="js/api.js"></script><script src="js/app.js"></script>
+<script>
+let _product=null;
+
+initPage({ active:'products.html', onReady: async(user)=>{
+  const id=getParam('id'); const view=document.getElementById('view');
+  if(!id){go('products.html');return;}
+  try{_product=(await api.get(`/products/${id}`))?.data?.product;}
+  catch{view.innerHTML=`<div class="empty"><div class="empty-ico">📦</div><h3>Produto não encontrado</h3><button class="btn btn-ghost btn-sm" style="margin-top:14px" onclick="goBack()">← Voltar</button></div>`;return;}
+  // Fire-and-forget: incrementa views sem bloquear o render
+  api.post(`/products/${id}/viewed`).catch(()=>{});
+  renderProduct(user);
+  await Promise.allSettled([loadReviewForm(), loadRelated()]);
+}});
+
+function renderProduct(user){
+  const p=_product; const imgs=p.images||[]; const view=document.getElementById('view');
+  view.innerHTML=`
+    <button class="btn btn-soft btn-sm" style="margin-bottom:18px" onclick="goBack()">← Voltar</button>
+    <div class="pd-grid" id="pd-grid">
+      <div>
+        <div class="pd-main-img"><img id="main-img" src="${imgs[0]?.url||''}" alt="${esc(p.name)}" style="${imgs[0]?.url?'':'display:none'}">
+          ${!imgs[0]?.url?`<span style="color:var(--t4);font-size:13px">Sem imagem</span>`:''}</div>
+        ${imgs.length>1?`<div class="pd-thumbs">${imgs.map((img,i)=>`<div class="pd-thumb ${i===0?'on':''}" onclick="setMainImg(${i})"><img src="${esc(img.url)}" alt=""></div>`).join('')}</div>`:''}
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--t4);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">${esc(p.category)}</div>
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:12px">
+          <h2 style="line-height:1.25">${esc(p.name)}</h2>
+          ${user?.role==='BUYER'?`<button class="btn-icon" style="font-size:20px;flex-shrink:0" onclick="toggleFavorite('${p.id}',this)">${p.isFavorite?'❤️':'🤍'}</button>`:''}
+        </div>
+        ${p.ratingCount?`<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">${stars(p.rating)} <span style="font-size:12px;color:var(--t3)">${p.rating.toFixed(1)} · ${p.ratingCount} avaliações</span></div>`:''}
+        <div class="pd-price" style="margin-bottom:14px">${fmtMT(p.price)}</div>
+        <div style="font-size:14px;color:var(--t2);line-height:1.75;margin-bottom:16px">${esc(p.description)}</div>
+        <div class="pd-info-grid">
+          ${p.location?`<div class="pd-info-item">📍 ${esc(p.location)}</div>`:''}
+          ${p.condition?`<div class="pd-info-item">📋 ${esc(p.condition)}</div>`:''}
+          ${p.deliveryMethod?`<div class="pd-info-item">🚚 ${esc(p.deliveryMethod)}</div>`:''}
+          ${p.size?`<div class="pd-info-item">📐 ${esc(p.size)}</div>`:''}
+          ${p.color?`<div class="pd-info-item">🎨 ${esc(p.color)}</div>`:''}
+          <div class="pd-info-item" style="color:${p.stock>0?'var(--b-500)':'var(--r-500)'}">
+            ${p.stock>0?`✓ ${p.stock} em stock`:'✗ Esgotado'}
+          </div>
+        </div>
+        ${p.stock>0&&(!user||user.role!=='SELLER')?`
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+            <label style="text-transform:none;font-weight:500;color:var(--t2);white-space:nowrap;font-size:13px">Quantidade:</label>
+            <input type="number" id="qty-i" value="1" min="1" max="${p.stock}" style="width:80px;border-radius:var(--r)">
+          </div>
+          <div style="display:flex;gap:9px;flex-wrap:wrap;margin-bottom:10px">
+            <button class="btn btn-primary" style="flex:1;justify-content:center" onclick="addToCartFromProduct()">🛒 Carrinho</button>
+            <button class="btn btn-gold" onclick="goCheckout()">⚡ Encomendar</button>
+          </div>
+          ${user&&user.id!==p.sellerId?`<button class="btn btn-ghost btn-sm btn-block" onclick="contactSeller('${p.sellerId}')">💬 Falar com o vendedor</button>`:''}
+        `:p.stock<=0?`<div class="alert a-err"><span>✕</span> Produto esgotado</div>`:''}
+        <div class="card card-sm" style="margin-top:14px;cursor:pointer;border-radius:var(--rl)" onclick="go('bazar.html',{id:'${p.bazar?.slug||''}'})">
+          <div style="display:flex;align-items:center;gap:10px">${avatar(p.bazar?.name||'?',36,p.bazar?.logoUrl||p.bazar?.logo_url||null)}<div style="flex:1"><div style="font-weight:600;font-size:13px">${esc(p.bazar?.name||'')}</div><div style="font-size:11px;color:var(--t4)">Ver loja</div></div><span style="color:var(--t4)">›</span></div>
+        </div>
+        <button class="btn btn-soft btn-xs" style="margin-top:10px;color:var(--r-500)" onclick="openProductReport()">🚩 Denunciar produto</button>
+      </div>
+    </div>
+    ${p.reviews?.length?`
+      <div class="sh" style="margin-top:10px"><h2>Avaliações <span style="color:var(--t4);font-weight:400">(${p.reviews.length})</span></h2></div>
+      <div style="display:flex;flex-direction:column;gap:12px">
+        ${p.reviews.map(r=>`<div class="card card-sm"><div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:${r.comment?'10px':'0'}"><div style="display:flex;gap:10px;align-items:center">${avatar(r.buyer?.name,30,r.buyer?.avatarUrl||r.buyer?.photoUrl||null)}<strong style="font-size:13px">${esc(r.buyer?.name||'')}</strong></div>${stars(r.rating)}</div>${r.comment?`<p style="font-size:13px;color:var(--t2)">${esc(r.comment)}</p>`:''}</div>`).join('')}
+      </div>`:``}
+    <div id="review-form-wrap"></div>
+    <div id="related-wrap"></div>`;
+  if(window.innerWidth<=700) document.getElementById('pd-grid').style.gridTemplateColumns='1fr';
+}
+
+// Carrega formulário de avaliação (só para compradores com encomenda entregue)
+async function loadReviewForm(){
+  const wrap = document.getElementById('review-form-wrap');
+  if(!wrap || !Session.isRole('BUYER')) return;
+  try{
+    const orders = (await api.get('/orders/mine', {limit:100}))?.data?.orders || [];
+    const eligible = orders.find(o => o.status==='ENTREGUE' && o.items?.some(i=>i.productId===_product.id) && !o.rated);
+    if(!eligible) return;
+    wrap.innerHTML = `
+      <div class="sh" style="margin-top:18px"><h2>A sua avaliação</h2></div>
+      <div class="card">
+        <p style="font-size:13px;color:var(--t3);margin-bottom:14px">Partilhe a sua experiência com este produto.</p>
+        <div style="margin-bottom:14px">
+          <label style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--t4);display:block;margin-bottom:6px">Classificação</label>
+          <div id="star-pick" style="display:flex;gap:4px"></div>
+        </div>
+        <div class="fg" style="margin-bottom:14px">
+          <label>Comentário (opcional)</label>
+          <textarea id="rev-comment" rows="3" placeholder="O que achou do produto?"></textarea>
+        </div>
+        <button class="btn btn-gold" onclick="submitReview('${eligible.id}')">⭐ Enviar avaliação</button>
+      </div>`;
+    starPicker('star-pick');
+  }catch{}
+}
+
+async function submitReview(orderId){
+  const rating = document.getElementById('star-pick')._getValue ? document.getElementById('star-pick')._getValue() : 0;
+  if(!rating){ toast('Escolha uma classificação de 1 a 5 estrelas.','warn'); return; }
+  const comment = document.getElementById('rev-comment')?.value?.trim() || '';
+  const btn = document.querySelector('#review-form-wrap .btn-gold');
+  setLoading(btn, true);
+  try{
+    await api.post('/reviews', { orderId, productId: _product.id, rating, comment });
+    document.getElementById('review-form-wrap').innerHTML = `<div class="alert a-ok" style="margin-top:16px"><span>✓</span> Avaliação enviada com sucesso! Obrigado.</div>`;
+    toast('Avaliação enviada! ⭐','ok');
+  }catch(e){
+    setLoading(btn, false);
+    toast(apiErrorMessage(e),'err');
+  }
+}
+
+// Carrega produtos relacionados
+async function loadRelated(){
+  const wrap = document.getElementById('related-wrap');
+  if(!wrap) return;
+  try{
+    const res = await api.get(`/products/${_product.id}/related`);
+    const prods = res?.data?.products || [];
+    if(!prods.length) return;
+    wrap.innerHTML = `
+      <div class="sh" style="margin-top:24px"><h2>Produtos relacionados</h2></div>
+      <div class="p-grid">${prods.map(productCard).join('')}</div>`;
+  }catch{}
+}
+
+function setMainImg(i){
+  const el=document.getElementById('main-img');
+  if(el){el.src=_product.images[i].url;el.style.display='';}
+  document.querySelectorAll('.pd-thumb').forEach((t,j)=>t.classList.toggle('on',j===i));
+}
+function addToCartFromProduct(){
+  if(!Session.isLoggedIn()){go('login.html');return;}
+  const qty=Math.max(1,parseInt(document.getElementById('qty-i').value)||1);
+  addToCart(_product.id,qty);
+}
+async function addToCart(productId,qty){
+  try{await api.post('/cart/items',{productId,qty});await refreshCartCount();toast('Adicionado ao carrinho! 🛒');buildTopbar('products.html');}
+  catch(e){toast(apiErrorMessage(e),'err');}
+}
+function goCheckout(){
+  if(!Session.isLoggedIn()){go('login.html');return;}
+  const qty=Math.max(1,parseInt(document.getElementById('qty-i').value)||1);
+  go('checkout.html',{id:_product.id,qty});
+}
+async function contactSeller(sid){
+  try{const r=await api.get(`/chat/with/${sid}`);go('chat.html',{with:sid,chatId:r?.data?.chat?.id||''});}
+  catch(e){toast(apiErrorMessage(e),'err');}
+}
+function openProductReport(){
+  if(!Session.isLoggedIn()){go('login.html');return;}
+  openModal(`<div class="modal-hd"><h3>Denunciar produto</h3><button class="modal-x" onclick="closeModal()">✕</button></div>
+    <div class="fg"><label>Motivo</label><select id="rp-r"><option>Produto falso/enganoso</option><option>Produto ilegal</option><option>Imagens inadequadas</option><option>Preço fraudulento</option><option>Outro</option></select></div>
+    <div class="fg"><label>Descrição</label><textarea id="rp-d" rows="3" placeholder="Descreva o problema..."></textarea></div>
+    <div style="display:flex;gap:9px"><button class="btn btn-danger" onclick="submitProdReport()">Enviar</button><button class="btn btn-ghost" onclick="closeModal()">Cancelar</button></div>`);
+}
+async function submitProdReport(){
+  const reason=document.getElementById('rp-r').value;
+  const description=document.getElementById('rp-d').value.trim();
+  if(!description){toast('Descreva o problema.','warn');return;}
+  try{await api.post('/reports',{type:'PRODUCT',targetId:_product.id,reason,description});closeModal();toast('Denúncia enviada.');}
+  catch(e){toast(apiErrorMessage(e),'err');}
+}
+</script></body></html>

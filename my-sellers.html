@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="pt" data-theme="light">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Meus Vendedores — Bazares</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;0,14..32,800;1,14..32,500&display=swap" rel="stylesheet"><link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header id="topbar"></header>
+<div class="overlay" id="overlay"></div>
+<aside id="sidebar" class="closed"></aside>
+<div id="main"><div id="view" class="pg-body"><div style="text-align:center;padding:40px"><span class="spinner spinner-dark"></span></div></div></div>
+<div id="modal-root"></div>
+<div id="toast-root"></div>
+
+<script src="js/config.js"></script>
+<script src="js/api.js"></script>
+<script src="js/app.js"></script>
+<script>
+initPage({ active: 'my-sellers.html', requireAuth: true, roles: ['REVENDEDOR'], onReady: async () => {
+  const view = document.getElementById('view');
+  try {
+    const res = await api.get('/revendedor/me/sellers', { limit: 100 });
+    const sellers = res?.data?.sellers || [];
+    view.innerHTML = `
+      <div class="sh"><h2>Meus Vendedores (${sellers.length})</h2></div>
+      ${!sellers.length ? `<div class="empty"><div class="empty-ico">🤝</div><h3>Sem vendedores</h3><p>Partilhe o seu link de referência.</p>
+        <button class="btn btn-primary" style="margin-top:14px" onclick="go('referrals.html')">Ver link</button></div>` : `
+      <div class="tbl-wrap"><table><thead><tr><th>Vendedor</th><th>Email</th><th>Bazar</th><th>Vendas</th><th>Taxa pend.</th><th>Estado</th></tr></thead><tbody>
+        ${sellers.map(s => `<tr>
+          <td><strong>${esc(s.name)}</strong></td>
+          <td style="font-size:12px;color:var(--t3)">${esc(s.email)}</td>
+          <td>${esc(s.bazar?.name || '—')}</td>
+          <td>${fmtMT(s.bazar?.totalSales || 0)}</td>
+          <td style="color:${(s.bazar?.pendingFees||0)>=150?'var(--red)':'var(--text)'}">${fmtMT(s.bazar?.pendingFees || 0)}</td>
+          <td><span class="badge ${s.active?'b-grn':'b-red'}">${s.active?'Activo':'Suspenso'}</span></td>
+        </tr>`).join('')}
+      </tbody></table></div>`}`;
+  } catch (e) {
+    view.innerHTML = `<div class="empty"><div class="empty-ico">⚠</div><h3>${esc(apiErrorMessage(e))}</h3></div>`;
+  }
+}});
+</script>
+</body></html>

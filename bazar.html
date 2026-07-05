@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="pt" data-theme="light">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Bazar — Bazares</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;0,14..32,800;1,14..32,500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header id="topbar"></header><div class="overlay" id="overlay"></div><aside id="sidebar" class="closed"></aside>
+<div id="main"><div id="view" class="pg-body"><div style="text-align:center;padding:60px"><span class="spinner spinner-dark"></span></div></div></div>
+<div id="modal-root"></div><div id="toast-root"></div>
+<script src="js/config.js"></script><script src="js/api.js"></script><script src="js/app.js"></script>
+<script>
+initPage({ active:'bazars.html', onReady: async(user)=>{
+  const id=getParam('id'); const view=document.getElementById('view');
+  if(!id){ go('bazars.html'); return; }
+  let bazar;
+  try { bazar=(await api.get(`/bazars/${id}`))?.data?.bazar; }
+  catch { view.innerHTML=`<div class="empty"><div class="empty-ico">🏪</div><h3>Bazar não encontrado</h3><button class="btn btn-ghost btn-sm" style="margin-top:14px" onclick="go('bazars.html')">← Voltar</button></div>`; return; }
+  const s=bazar.seller||{};
+  view.innerHTML=`
+    <div class="pg-hero" style="margin-bottom:28px">
+      <div class="pg-hero-content" style="display:flex;align-items:center;gap:20px;flex-wrap:wrap">
+        ${avatar(bazar.name,64,bazar.logoUrl||bazar.logo_url||bazar.imageUrl||null)}
+        <div style="flex:1">
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:4px">
+            <h1 style="color:#fff;font-size:clamp(18px,3.5vw,28px)">${esc(bazar.name)}</h1>
+            ${s.verifiedSeller?`<span class="badge b-gld">✓ Verificado</span>`:''}
+          </div>
+          <div style="color:rgba(255,255,255,.55);font-size:13px;margin-bottom:8px">${esc(bazar.category)}${bazar.location?' · 📍 '+esc(bazar.location):''}</div>
+          <div>${stars(s.rating||0)} <span style="color:rgba(255,255,255,.4);font-size:12px">${s.ratingCount?s.rating.toFixed(1)+'/5 · '+s.ratingCount+' avaliações':'Sem avaliações'}</span></div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;position:relative;z-index:1">
+          ${user&&user.id!==s.id?`<button class="btn btn-gold btn-sm" onclick="contactSeller('${s.id}')">💬 Contactar</button>`:''}
+          ${user&&user.id!==s.id?`<button class="btn btn-ghost btn-sm" style="color:#fff;border-color:rgba(255,255,255,.25)" onclick="openReportModal('USER','${s.id}')">🚩 Denunciar</button>`:''}
+        </div>
+      </div>
+    </div>
+    ${bazar.description?`<div class="card" style="margin-bottom:22px"><p style="font-size:14px;line-height:1.75;color:var(--t2)">${esc(bazar.description)}</p></div>`:''}
+    <div class="sh-row">
+      <h2>Produtos <span style="color:var(--t4);font-weight:400">(${bazar.products?.length||0})</span></h2>
+    </div>
+    <div class="p-grid">${(bazar.products||[]).map(productCard).join('')||'<div class="empty" style="grid-column:1/-1"><div class="empty-ico">📦</div><h3>Sem produtos</h3></div>'}</div>`;
+}});
+
+async function contactSeller(sid){
+  if(!Session.isLoggedIn()){go('login.html');return;}
+  try{const r=await api.get(`/chat/with/${sid}`);go('chat.html',{with:sid,chatId:r?.data?.chat?.id||''});}
+  catch(e){toast(apiErrorMessage(e),'err');}
+}
+function openReportModal(type,targetId){
+  if(!Session.isLoggedIn()){go('login.html');return;}
+  openModal(`<div class="modal-hd"><h3>Denunciar</h3><button class="modal-x" onclick="closeModal()">✕</button></div>
+    <div class="fg"><label>Motivo</label><select id="rp-r"><option>Comportamento inadequado</option><option>Fraude</option><option>Spam</option><option>Conta falsa</option><option>Outro</option></select></div>
+    <div class="fg"><label>Descrição</label><textarea id="rp-d" rows="3" placeholder="Descreva o problema..."></textarea></div>
+    <div style="display:flex;gap:9px"><button class="btn btn-danger" onclick="submitReport('${type}','${targetId}')">Enviar</button><button class="btn btn-ghost" onclick="closeModal()">Cancelar</button></div>`);
+}
+async function submitReport(type,targetId){
+  const reason=document.getElementById('rp-r').value;
+  const description=document.getElementById('rp-d').value.trim();
+  if(!description){toast('Descreva o problema.','warn');return;}
+  try{await api.post('/reports',{type,targetId,reason,description});closeModal();toast('Denúncia enviada.');}
+  catch(e){toast(apiErrorMessage(e),'err');}
+}
+</script></body></html>

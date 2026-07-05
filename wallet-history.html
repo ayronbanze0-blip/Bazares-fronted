@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="pt" data-theme="light">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Histórico da Wallet — Bazares</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;0,14..32,800;1,14..32,500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header id="topbar"></header><div class="overlay" id="overlay"></div><aside id="sidebar" class="closed"></aside>
+<div id="main"><div id="view" class="pg-body"></div></div>
+<div id="modal-root"></div><div id="toast-root"></div>
+<script src="js/config.js"></script><script src="js/api.js"></script><script src="js/app.js"></script>
+<script>
+let _hPage = 1;
+
+initPage({ active:'wallet.html', requireAuth:true, onReady: async () => {
+  await renderShell();
+  await loadMovimentos(1);
+}});
+
+async function renderShell() {
+  document.getElementById('view').innerHTML = `
+    <div class="sh-row"><h2>Histórico da Wallet</h2><a href="wallet.html" style="font-size:12.5px;font-weight:600;color:var(--b-500)">← Voltar à wallet</a></div>
+    <div id="hist-content"><div style="text-align:center;padding:40px"><span class="spinner spinner-dark"></span></div></div>
+    <div id="hist-pagination"></div>`;
+}
+
+async function loadMovimentos(page) {
+  _hPage = page;
+  const content = document.getElementById('hist-content');
+  content.innerHTML = `<div style="text-align:center;padding:40px"><span class="spinner spinner-dark"></span></div>`;
+  try {
+    const res = await api.get('/wallet/me', { page, limit: 30 });
+    const { transactions, meta } = res.data;
+    content.innerHTML = `<div class="tbl-wrap"><table>
+      <thead><tr><th>Data</th><th>Descrição</th><th>Tipo</th><th>Valor</th><th>Saldo após</th></tr></thead>
+      <tbody>${transactions.length ? transactions.map(t => `<tr>
+        <td style="color:var(--t3);font-size:12px">${fmtDate(t.createdAt)}</td>
+        <td>${esc(t.description)}</td>
+        <td>${txTypeBadge(t.type)}</td>
+        <td style="font-weight:700;color:${isCreditType(t.type) ? 'var(--grn)' : 'var(--red)'}">${isCreditType(t.type) ? '+' : '−'}${fmtMT(t.amount)}</td>
+        <td style="color:var(--t3)">${fmtMT(t.balanceAfter)}</td>
+      </tr>`).join('') : `<tr><td colspan="5" style="text-align:center;color:var(--t4);padding:32px">Sem movimentos</td></tr>`}</tbody>
+    </table></div>`;
+    renderPagination('hist-pagination', meta, (p) => loadMovimentos(p));
+  } catch (e) {
+    content.innerHTML = `<div class="empty"><div class="empty-ico">⚠</div><h3>${esc(apiErrorMessage(e))}</h3></div>`;
+  }
+}
+
+function isCreditType(type) {
+  return ['CREDITO_COMISSAO', 'AJUSTE_ADMIN'].includes(type);
+}
+function txTypeBadge(type) {
+  const map = {
+    DEBITO_COMISSAO: ['Comissão paga', 'b-red'], CREDITO_COMISSAO: ['Comissão recebida', 'b-grn'],
+    AJUSTE_ADMIN: ['Ajuste admin', 'b-gld']
+  };
+  const [label, cls] = map[type] || [type, 'b-blu'];
+  return `<span class="badge ${cls}">${label}</span>`;
+}
+</script>
+</body></html>

@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="pt" data-theme="light">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Encomendas — Bazares</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;0,14..32,800;1,14..32,500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header id="topbar"></header><div class="overlay" id="overlay"></div><aside id="sidebar" class="closed"></aside>
+<div id="main"><div id="view" class="pg-body"></div></div>
+<div id="modal-root"></div><div id="toast-root"></div>
+<script src="js/config.js"></script><script src="js/api.js"></script><script src="js/app.js"></script>
+<script>
+const ORDER_TRANSITIONS = {
+  SELLER:{ PENDENTE:['ACEITE','CANCELADA'], ACEITE:['EM_PREPARACAO'], EM_PREPARACAO:['EM_ENTREGA'], EM_ENTREGA:['ENTREGUE'] },
+  BUYER:{ PENDENTE:['CANCELADA'] }
+};
+
+initPage({ active:'my-orders.html', requireAuth:true, onReady: async(user)=>{
+  const isSeller = user.role==='SELLER';
+  document.getElementById('view').innerHTML=`
+    <div class="pg-hero">
+      <div class="pg-hero-content">
+        <div class="section-pill">${isSeller?'📬 Recebidas':'🛒 Compras'}</div>
+        <h1>${isSeller?'Encomendas recebidas':'As minhas encomendas'}</h1>
+        <p>${isSeller?'Gira as encomendas dos seus clientes':'Acompanhe as suas compras'}</p>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap">
+      ${['','PENDENTE','ACEITE','EM_PREPARACAO','EM_ENTREGA','ENTREGUE','CANCELADA'].map(s=>
+        `<button class="btn btn-xs ${s===''?'btn-primary':'btn-soft'}" id="ftb-${s||'ALL'}" onclick="filterOrders('${s}')">${s?STATUS_LABEL[s]:'Todas'}</button>`
+      ).join('')}
+    </div>
+    <div id="orders-list" style="display:flex;flex-direction:column;gap:12px"></div>`;
+
+  await loadOrders(isSeller, user.role);
+}});
+
+let _allOrders=[], _userRole='';
+async function loadOrders(isSeller, role){
+  _userRole=role;
+  const list=document.getElementById('orders-list');
+  list.innerHTML=`<div style="text-align:center;padding:40px"><span class="spinner spinner-dark"></span></div>`;
+  try{
+    const endpoint = isSeller ? '/orders/received' : '/orders/mine';
+    const res=await api.get(endpoint,{limit:100});
+    _allOrders=res?.data?.orders||[];
+    renderOrders(_allOrders, role);
+  }catch(e){ list.innerHTML=`<div class="empty"><div class="empty-ico">⚠</div><h3>${esc(apiErrorMessage(e))}</h3></div>`; }
+}
+
+function filterOrders(status){
+  document.querySelectorAll('[id^="ftb-"]').forEach(b=>{b.className='btn btn-xs btn-soft';});
+  const key=status||'ALL';
+  document.getElementById(`ftb-${key}`).className='btn btn-xs btn-primary';
+  const filtered = status ? _allOrders.filter(o=>o.status===status) : _allOrders;
+  renderOrders(filtered, _userRole);
+}
+
+function renderOrders(orders, role){
+  const list=document.getElementById('orders-list');
+  if(!orders.length){ list.innerHTML=`<div class="empty"><div class="empty-ico">📭</div><h3>Sem encomendas</h3></div>`; return; }
+  list.innerHTML=orders.map(o=>orderCard(o,role)).join('');
+}
+
+function orderCard(o, role){
+  const transitions=(ORDER_TRANSITIONS[role]||{})[o.status]||[];
+  const actionBtns = transitions.map(ns=>`<button class="btn btn-sm ${ns==='CANCELADA'?'btn-danger':ns==='ENTREGUE'?'btn-success':'btn-primary'}" onclick="updateStatus('${o.id}','${ns}')">${STATUS_LABEL[ns]}</button>`).join('');
+  const canReview = role==='BUYER' && o.status==='ENTREGUE' && !o.reviewed;
+  return `<div class="order-card">
+    <div class="order-head">
+      <div>
+        <div style="font-weight:700;font-size:14px;margin-bottom:2px">Ref: ${o.id.slice(0,10)}…</div>
+        <div style="font-size:12px;color:var(--t4)">${fmtDate(o.createdAt)} ${fmtTime(o.createdAt)}</div>
+        ${o.address?`<div style="font-size:12px;color:var(--t3);margin-top:3px">📍 ${esc(o.address)}</div>`:''}
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px">
+        ${stBadge(o.status)}
+        <span style="font-family:'Inter',sans-serif;font-weight:800;font-size:16px;font-weight:700;color:var(--b-600)">${fmtMT(o.total)}</span>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      ${(o.items||[]).map(it=>`
+        <div style="display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--surf3);border-radius:var(--r);border:1px solid var(--brd)">
+          ${it.image?`<img src="${esc(it.image)}" style="width:44px;height:44px;border-radius:8px;object-fit:cover;flex-shrink:0">`:`<div style="width:44px;height:44px;border-radius:8px;background:var(--brd);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:18px">📦</div>`}
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:600;font-size:13px">${esc(it.name||it.product?.name||'Produto')}</div>
+            <div style="font-size:11px;color:var(--t4)">Qtd: ${it.qty} · ${fmtMT(it.price||0)}/un.</div>
+          </div>
+          <div style="font-weight:700;color:var(--b-600);font-family:'Inter',sans-serif;font-weight:800">${fmtMT((it.qty||1)*(it.price||0))}</div>
+        </div>`).join('')}
+    </div>
+    ${actionBtns||canReview?`<div class="order-actions">
+      ${actionBtns}
+      ${canReview?`<button class="btn btn-soft btn-sm" onclick="openReview('${o.id}','${o.items?.[0]?.productId||''}')">⭐ Avaliar</button>`:''}
+      ${role==='BUYER'&&o.status!=='CANCELADA'?`<button class="btn btn-soft btn-sm" onclick="openChat('${o.sellerId}')">💬 Falar com vendedor</button>`:''}
+    </div>`:''}
+  </div>`;
+}
+
+async function updateStatus(orderId, newStatus){
+  try{await api.patch(`/orders/${orderId}/status`,{status:newStatus});toast('Estado actualizado!');await loadOrders(_userRole==='SELLER',_userRole);}
+  catch(e){toast(apiErrorMessage(e),'err');}
+}
+async function openChat(sid){
+  try{const r=await api.get(`/chat/with/${sid}`);go('chat.html',{chatId:r?.data?.chat?.id||''});}
+  catch(e){toast(apiErrorMessage(e),'err');}
+}
+function openReview(orderId, productId){
+  openModal(`<div class="modal-hd"><h3>Avaliar compra</h3><button class="modal-x" onclick="closeModal()">✕</button></div>
+    <div class="fg"><label>Classificação</label><div id="star-pick" class="star-pick"></div></div>
+    <div class="fg"><label>Comentário (opcional)</label><textarea id="rv-comment" rows="3" placeholder="Como foi a sua experiência?"></textarea></div>
+    <div style="display:flex;gap:9px">
+      <button class="btn btn-primary" style="flex:1" onclick="submitReview('${orderId}','${productId}')">Enviar avaliação</button>
+      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+    </div>`);
+  starPicker('star-pick');
+}
+async function submitReview(orderId,productId){
+  const starEl=document.getElementById('star-pick');
+  const r=starEl && starEl._getValue ? starEl._getValue() : 0;
+  const comment=document.getElementById('rv-comment').value.trim();
+  if(!r){toast('Seleccione uma classificação.','warn');return;}
+  try{await api.post('/reviews',{orderId,productId,rating:r,comment});closeModal();toast('Avaliação enviada! ⭐');await loadOrders(_userRole==='SELLER',_userRole);}
+  catch(e){toast(apiErrorMessage(e),'err');}
+}
+</script></body></html>

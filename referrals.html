@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="pt" data-theme="light">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Referências — Bazares</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;0,14..32,800;1,14..32,500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header id="topbar"></header><div class="overlay" id="overlay"></div><aside id="sidebar" class="closed"></aside>
+<div id="main"><div id="view" class="pg-body"></div></div>
+<div id="modal-root"></div><div id="toast-root"></div>
+<script src="js/config.js"></script><script src="js/api.js"></script><script src="js/app.js"></script>
+<script>
+initPage({ active:'referrals.html', requireAuth:true, onReady: async(user)=>{
+  const view=document.getElementById('view');
+  view.innerHTML=`<div style="text-align:center;padding:60px"><span class="spinner spinner-dark"></span></div>`;
+  let data=null;
+  try{ data=(await api.get('/revendedor/me/referrals'))?.data; } catch{}
+  const code=data?.referralCode||user.referralCode||'';
+  const link=`${window.location.origin}/register.html?ref=${code}`;
+  const stats=data?.stats||{};
+  view.innerHTML=`
+    <div class="pg-hero">
+      <div class="pg-hero-content">
+        <div class="section-pill">🔗 Referências</div>
+        <h1>Programa de Referidos</h1>
+        <p>Partilhe o seu link e ganhe comissões sobre as vendas dos seus referidos</p>
+      </div>
+    </div>
+    <div class="stats-row">
+      <div class="stat acc"><div class="stat-accent-bar" style="background:var(--g-green)"></div><div class="val">${stats.directReferrals||0}</div><div class="lbl">Referidos directos</div></div>
+      <div class="stat"><div class="stat-accent-bar" style="background:var(--g-gold)"></div><div class="val">${fmtMT(stats.totalSalesVolume||0)}</div><div class="lbl">Volume de vendas</div></div>
+      <div class="stat"><div class="stat-accent-bar" style="background:var(--b-500)"></div><div class="val">${fmtMT(stats.totalCommissions||0)}</div><div class="lbl">Comissões ganhas</div></div>
+    </div>
+    <div class="widget-grid">
+      <div class="card">
+        <h4 style="margin-bottom:6px">🔗 O seu link de referência</h4>
+        <p style="font-size:13px;margin-bottom:16px">Partilhe este link. Quando alguém criar conta através dele, será contabilizado como seu referido.</p>
+        <div class="link-box" style="margin-bottom:12px">
+          <span id="ref-link" style="font-size:11px">${link}</span>
+          <button class="btn btn-xs btn-primary" onclick="copyLink()">Copiar</button>
+        </div>
+        ${code?`<div class="card card-sm" style="background:var(--b-50);border-color:var(--b-100)">
+          <div style="font-size:11px;color:var(--t4);margin-bottom:4px">Código de referência</div>
+          <div class="code-box" style="font-size:22px;background:var(--b-50);color:var(--b-600);letter-spacing:4px;border:1.5px solid var(--b-200)">${esc(code)}</div>
+        </div>`:''}
+        <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
+          <button class="btn btn-primary btn-sm" onclick="shareWhatsApp()">💬 Partilhar WhatsApp</button>
+          <button class="btn btn-soft btn-sm" onclick="copyLink()">📋 Copiar link</button>
+        </div>
+      </div>
+      <div class="card">
+        <h4 style="margin-bottom:16px">💡 Como funciona</h4>
+        <div style="display:flex;flex-direction:column;gap:12px">
+          ${[['1','Partilhe o link','Envie o seu link de referência para amigos e conhecidos que queiram vender no Bazares.'],
+             ['2','Eles registam-se','Quando criarem conta através do seu link, ficam ligados à sua rede de referidos.'],
+             ['3','Eles vendem','Cada vez que os seus referidos fazem vendas, o volume é acumulado na sua conta.'],
+             ['4','Você ganha','Recebe comissões sobre o volume de vendas dos seus referidos directos.']
+          ].map(([n,t,d])=>`<div style="display:flex;gap:12px;align-items:flex-start">
+            <div style="width:28px;height:28px;border-radius:8px;background:var(--g-green);color:#fff;font-size:13px;font-weight:900;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-family:'Inter',sans-serif">${n}</div>
+            <div><div style="font-weight:600;font-size:13px;margin-bottom:2px">${t}</div><div style="font-size:12px;color:var(--t3)">${d}</div></div>
+          </div>`).join('')}
+        </div>
+      </div>
+    </div>
+    ${data?.referrals?.length?`
+    <div class="sh" style="margin-top:8px"><h2>Os meus referidos <span style="color:var(--t4);font-weight:400">(${data.referrals.length})</span></h2></div>
+    <div class="tbl-wrap">
+      <table><thead><tr><th>Nome</th><th>Email</th><th>Conta</th><th>Data</th><th>Volume</th></tr></thead>
+        <tbody>${data.referrals.map(r=>`<tr>
+          <td style="font-weight:600">${esc(r.name||'—')}</td>
+          <td style="color:var(--t3)">${esc(r.email||'—')}</td>
+          <td>${r.bazar?`<span class="badge b-grn">Vendedor</span>`:`<span class="badge b-gray">Comprador</span>`}</td>
+          <td style="color:var(--t3)">${fmtDate(r.createdAt)}</td>
+          <td style="font-family:'Inter',sans-serif;font-weight:800;font-weight:700;color:var(--b-600)">${fmtMT(r.salesVolume||0)}</td>
+        </tr>`).join('')}</tbody>
+      </table>
+    </div>`:''}`;
+}});
+
+function copyLink(){
+  const url=document.getElementById('ref-link')?.textContent;
+  if(url) navigator.clipboard.writeText(url).then(()=>toast('Link copiado! 🔗')).catch(()=>toast('Erro ao copiar.','err'));
+}
+function shareWhatsApp(){
+  const url=document.getElementById('ref-link')?.textContent;
+  if(url) window.open(`https://wa.me/?text=${encodeURIComponent('Registe-se no Bazares — o marketplace moçambicano: '+url)}`, '_blank');
+}
+</script></body></html>

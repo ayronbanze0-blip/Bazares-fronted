@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="pt" data-theme="light">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Criar conta — Bazares</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;0,14..32,800;1,14..32,500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+<style>
+  /* ── Palavra-passe com olhinho para mostrar/ocultar ── */
+  .pw-wrap{position:relative}
+  .pw-wrap input{padding-right:42px}
+  .pw-toggle{
+    position:absolute;top:50%;right:12px;transform:translateY(-50%);
+    background:transparent;border:none;padding:4px;color:var(--t4);cursor:pointer;
+    display:flex;align-items:center;justify-content:center;transition:color var(--ease);
+  }
+  .pw-toggle:hover{color:var(--b-500)}
+</style>
+</head>
+<body>
+<div class="auth-split">
+  <div class="auth-split-form">
+    <a href="index.html" class="auth-back">← Voltar ao início</a>
+    <div style="max-width:400px;width:100%;margin:0 auto">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:28px">
+        <div style="width:38px;height:38px;border-radius:11px;background:var(--g-green);display:flex;align-items:center;justify-content:center;font-weight:900;color:#fff;font-size:19px">B</div>
+        <span style="font-size:20px;font-weight:800;letter-spacing:-.02em">BAZ<span style="color:var(--b-500)">ARES</span></span>
+      </div>
+      <h1 style="font-size:26px;margin-bottom:6px">Crie a sua conta</h1>
+      <p style="font-size:14px;color:var(--t3);margin-bottom:26px">Gratuita, sem cartão — comece a comprar ou vender hoje.</p>
+
+      <form id="reg-form">
+        <div id="reg-alert"></div>
+        <div class="fg"><label>Nome completo</label><input type="text" id="rname" placeholder="O seu nome" autocomplete="name" minlength="2" maxlength="100" required></div>
+        <div class="fg"><label>Email</label><input type="email" id="remail" placeholder="nome@email.com" autocomplete="email" required></div>
+        <div class="row2">
+          <div class="fg"><label>Palavra-passe</label>
+            <div class="pw-wrap">
+              <input type="password" id="rpw" placeholder="Mínimo 8 caracteres" autocomplete="new-password" minlength="8" required>
+              <button type="button" class="pw-toggle" data-target="rpw" aria-label="Mostrar palavra-passe">
+                <svg class="eye-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
+            </div>
+          </div>
+          <div class="fg"><label>Confirmar</label>
+            <div class="pw-wrap">
+              <input type="password" id="rpw2" placeholder="Repetir" autocomplete="new-password" minlength="8" required>
+              <button type="button" class="pw-toggle" data-target="rpw2" aria-label="Mostrar palavra-passe">
+                <svg class="eye-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="fg" id="invite-fg" style="display:none">
+          <label>Código de convite</label>
+          <input type="text" id="rinvite" placeholder="Código de convite de revendedor" autocomplete="off">
+        </div>
+        <button class="btn btn-primary btn-block" type="submit" id="reg-btn" style="font-size:15px;padding:14px;margin-top:4px">
+          Criar conta gratuita
+        </button>
+        <p style="font-size:11.5px;color:var(--t4);text-align:center;margin-top:14px;line-height:1.6">
+          Ao criar conta aceita os <a href="support.html" style="color:var(--b-500)">Termos de uso</a> e a <a href="support.html" style="color:var(--b-500)">Política de privacidade</a>.
+        </p>
+        <p style="font-size:12px;color:var(--t3);text-align:center;margin-top:10px">
+          A seguir vai dizer-nos se pretende comprar ou vender — é rápido 🙂
+        </p>
+      </form>
+
+      <p style="text-align:center;margin-top:20px;font-size:13.5px;color:var(--t3)">
+        Já tem conta? <a href="login.html" style="color:var(--b-500);font-weight:700">Iniciar sessão →</a>
+      </p>
+    </div>
+  </div>
+
+  <div class="auth-split-visual">
+    <div class="auth-pattern"></div>
+    <div class="auth-split-content">
+      <span class="auth-split-eyebrow">🛍️ Junte-se à comunidade</span>
+      <h2>Compre com confiança. Venda sem complicações.</h2>
+      <p>Crie a sua loja em minutos, publique produtos com fotos reais e receba encomendas com pagamento e entrega acompanhados de perto.</p>
+    </div>
+    <div class="auth-split-strip"><span></span><span></span><span></span></div>
+  </div>
+</div>
+
+<div id="modal-root"></div><div id="toast-root"></div>
+<script src="js/config.js"></script><script src="js/api.js"></script><script src="js/app.js"></script>
+<script>
+initPage({ active:'register.html', onReady:(user)=>{
+  if(user){ go(user.onboardedAt ? 'dashboard.html' : 'onboarding.html'); return; }
+
+  // Olhinho de mostrar/ocultar senha nos dois campos de palavra-passe.
+  const EYE_OPEN = '<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/>';
+  const EYE_OFF  = '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/>';
+  document.querySelectorAll('.pw-toggle').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const input = document.getElementById(btn.dataset.target);
+      const show = input.type === 'password';
+      input.type = show ? 'text' : 'password';
+      btn.querySelector('.eye-icon').innerHTML = show ? EYE_OFF : EYE_OPEN;
+      btn.setAttribute('aria-label', show ? 'Ocultar palavra-passe' : 'Mostrar palavra-passe');
+    });
+  });
+
+  // Se vier de um link de convite de revendedor (?invite=TOKEN), é o único
+  // caso em que o papel da conta já é conhecido antes de registar — mostra
+  // o campo de código de convite pré-preenchido. Todos os outros registos
+  // nascem BUYER e escolhem comprar/vender a seguir, em onboarding.html.
+  const inviteToken = getParam('invite');
+  const isInviteSignup = !!inviteToken;
+  if(isInviteSignup){
+    document.getElementById('invite-fg').style.display='';
+    document.getElementById('rinvite').value = inviteToken;
+    document.querySelector('h1').textContent = 'Torne-se revendedor';
+    document.querySelector('p[style*="margin-bottom:26px"]').textContent = 'Foi convidado para revender no Bazares — crie a sua conta para começar.';
+  }
+
+  document.getElementById('reg-form').addEventListener('submit', async e=>{
+    e.preventDefault();
+    const name    = document.getElementById('rname').value.trim();
+    const email   = document.getElementById('remail').value.trim();
+    const pw      = document.getElementById('rpw').value;
+    const pw2     = document.getElementById('rpw2').value;
+    const role    = isInviteSignup ? 'REVENDEDOR' : 'BUYER';
+    const inviteEl = document.getElementById('rinvite');
+    const inviteCode = isInviteSignup ? (inviteEl?.value?.trim() || undefined) : undefined;
+    const alertBox = document.getElementById('reg-alert');
+    alertBox.innerHTML='';
+
+    if(!name||!email||!pw||!pw2){ alertBox.innerHTML='<div class="alert a-err">Preencha todos os campos obrigatórios.</div>'; return; }
+    if(name.length<2||name.length>100){ alertBox.innerHTML='<div class="alert a-err">O nome deve ter entre 2 e 100 caracteres.</div>'; return; }
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ alertBox.innerHTML='<div class="alert a-err">Insira um email válido.</div>'; return; }
+    if(pw!==pw2){ alertBox.innerHTML='<div class="alert a-err">As palavras-passe não coincidem.</div>'; return; }
+    if(pw.length<8){ alertBox.innerHTML='<div class="alert a-warn">A palavra-passe deve ter pelo menos 8 caracteres.</div>'; return; }
+    if(isInviteSignup && !inviteCode){ alertBox.innerHTML='<div class="alert a-err">Código de convite obrigatório para revendedores.</div>'; return; }
+
+    const btn=document.getElementById('reg-btn');
+    setLoading(btn,true);
+    try{
+      await api.post('/auth/register',{name,email,password:pw,role,inviteCode});
+      // Fazer login automático imediatamente após registo
+      try{
+        const loggedUser = await Session.login(email,pw);
+        toast('Conta criada! Bem-vindo ao Bazares 🎉');
+        const dest = loggedUser?.onboardedAt ? 'dashboard.html' : 'onboarding.html';
+        setTimeout(()=>go(dest),700);
+      } catch{
+        // Se login automático falhar, mostrar mensagem e ir para login
+        toast('Conta criada! Agora entre com as suas credenciais.','info');
+        setTimeout(()=>go('login.html',{email}),1200);
+      }
+    } catch(err){
+      setLoading(btn,false);
+      alertBox.innerHTML=`<div class="alert a-err">${apiErrorMessage(err)}</div>`;
+    }
+  });
+}});
+</script>
+</body></html>

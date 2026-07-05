@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="pt" data-theme="light">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Admin — Produtos — Bazares</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;0,14..32,800;1,14..32,500&display=swap" rel="stylesheet"><link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header id="topbar"></header>
+<div class="overlay" id="overlay"></div>
+<aside id="sidebar" class="closed"></aside>
+<div id="main">
+  <div class="pg-body">
+    <div class="sh"><h2 id="ap-title">Produtos</h2></div>
+    <div id="ap-list"><div style="text-align:center;padding:40px"><span class="spinner spinner-dark"></span></div></div>
+  </div>
+</div>
+<div id="modal-root"></div>
+<div id="toast-root"></div>
+
+<script src="js/config.js"></script>
+<script src="js/api.js"></script>
+<script src="js/app.js"></script>
+<script>
+initPage({ active: 'admin-products.html', requireAuth: true, roles: ['ADMIN'], onReady: () => loadAdminProducts() });
+
+async function loadAdminProducts() {
+  const list = document.getElementById('ap-list');
+  try {
+    const res = await api.get('/admin/products', { limit: 100 });
+    const products = res?.data?.products || [];
+    document.getElementById('ap-title').textContent = `Produtos (${products.length})`;
+    list.innerHTML = `<div class="tbl-wrap"><table><thead><tr><th>Produto</th><th>Bazar</th><th>Categoria</th><th>Preço</th><th>Stock</th><th>Vendas</th><th>Views</th><th>Destaque</th><th>Estado</th><th>Acções</th></tr></thead><tbody>
+      ${products.map(p => `<tr>
+        <td><strong>${esc(p.name)}</strong></td>
+        <td style="font-size:12px">${esc(p.bazar?.name||'')}</td>
+        <td style="font-size:12px;color:var(--t3)">${esc(p.category)}</td>
+        <td style="font-weight:700">${fmtMT(p.price)}</td>
+        <td>${p.stock}</td>
+        <td>${p.sales||0}</td>
+        <td style="color:var(--t4);font-size:12px">${p.views||0}</td>
+        <td><button class="btn btn-xs ${p.featured?'btn-gold':'btn-ghost'}" onclick="toggleFeaturedProduct('${p.id}')" title="${p.featured?'Remover destaque':'Destacar produto'}">${p.featured?'⭐ Destacado':'☆ Destacar'}</button></td>
+        <td><span class="badge ${p.active?'b-grn':'b-gray'}">${p.active?'Activo':'Removido'}</span></td>
+        <td style="white-space:nowrap"><button class="btn btn-ghost btn-xs" onclick="toggleAdminProduct('${p.id}')">${p.active?'Remover':'Restaurar'}</button></td>
+      </tr>`).join('')}
+    </tbody></table></div>`;
+  } catch (e) {
+    list.innerHTML = `<div class="empty"><div class="empty-ico">⚠</div><h3>${esc(apiErrorMessage(e))}</h3></div>`;
+  }
+}
+
+async function toggleFeaturedProduct(id) {
+  try {
+    const res = await api.patch(`/admin/products/${id}/featured`);
+    toast(res?.data?.featured ? '⭐ Produto em destaque!' : 'Destaque removido.', res?.data?.featured ? 'ok' : 'info');
+    loadAdminProducts();
+  } catch (e) { toast(apiErrorMessage(e), 'err'); }
+}
+
+async function toggleAdminProduct(id) {
+  try {
+    const res = await api.patch(`/admin/products/${id}/toggle`);
+    toast(`Produto ${res?.data?.active ? 'restaurado' : 'removido'}.`);
+    loadAdminProducts();
+  } catch (e) { toast(apiErrorMessage(e), 'err'); }
+}
+</script>
+</body></html>

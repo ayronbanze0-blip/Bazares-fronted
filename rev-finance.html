@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="pt" data-theme="light">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Financeiro — Bazares</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;0,14..32,800;1,14..32,500&display=swap" rel="stylesheet"><link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header id="topbar"></header>
+<div class="overlay" id="overlay"></div>
+<aside id="sidebar" class="closed"></aside>
+<div id="main"><div id="view" class="pg-body"><div style="text-align:center;padding:40px"><span class="spinner spinner-dark"></span></div></div></div>
+<div id="modal-root"></div>
+<div id="toast-root"></div>
+
+<script src="js/config.js"></script>
+<script src="js/api.js"></script>
+<script src="js/app.js"></script>
+<script>
+initPage({ active: 'rev-finance.html', requireAuth: true, roles: ['REVENDEDOR'], onReady: async () => {
+  const view = document.getElementById('view');
+  try {
+    const res = await api.get('/revendedor/me/finance');
+    const transactions = res?.data?.transactions || [];
+    view.innerHTML = `
+      <div class="sh"><h2>Financeiro dos meus Vendedores</h2></div>
+      <div class="tbl-wrap"><table><thead><tr><th>Data</th><th>Bazar</th><th>Descrição</th><th>Valor</th><th>Taxa</th></tr></thead><tbody>
+        ${transactions.length ? transactions.map(t => `<tr>
+          <td style="font-size:11px;color:var(--t4)">${fmtDate(t.createdAt)}</td>
+          <td>${esc(t.bazar?.name || '—')}</td>
+          <td>${esc(t.description)}</td>
+          <td style="font-weight:600">${fmtMT(t.amount)}</td>
+          <td style="color:var(--red)">${t.fee>0?'−'+fmtMT(t.fee):'—'}</td>
+        </tr>`).join('') : `<tr><td colspan="5" style="text-align:center;color:var(--t4);padding:20px">Sem transacções</td></tr>`}
+      </tbody></table></div>`;
+  } catch (e) {
+    view.innerHTML = `<div class="empty"><div class="empty-ico">⚠</div><h3>${esc(apiErrorMessage(e))}</h3></div>`;
+  }
+}});
+</script>
+</body></html>

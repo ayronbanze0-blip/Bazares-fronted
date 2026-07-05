@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="pt" data-theme="light">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Admin — Denúncias — Bazares</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;0,14..32,800;1,14..32,500&display=swap" rel="stylesheet"><link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header id="topbar"></header>
+<div class="overlay" id="overlay"></div>
+<aside id="sidebar" class="closed"></aside>
+<div id="main">
+  <div class="pg-body">
+    <div class="sh-row">
+      <div class="sh"><h2 id="ad-title">Denúncias</h2></div>
+      <select id="ad-status" style="width:180px">
+        <option value="">Todos os estados</option>
+        <option value="PENDENTE">Pendente</option><option value="EM_ANALISE">Em Análise</option>
+        <option value="RESOLVIDA">Resolvida</option><option value="ARQUIVADA">Arquivada</option>
+      </select>
+    </div>
+    <div id="ad-list"><div style="text-align:center;padding:40px"><span class="spinner spinner-dark"></span></div></div>
+  </div>
+</div>
+<div id="modal-root"></div>
+<div id="toast-root"></div>
+
+<script src="js/config.js"></script>
+<script src="js/api.js"></script>
+<script src="js/app.js"></script>
+<script>
+initPage({ active: 'admin-denuncias.html', requireAuth: true, roles: ['ADMIN'], onReady: () => {
+  document.getElementById('ad-status').addEventListener('change', loadReports);
+  loadReports();
+}});
+
+async function loadReports() {
+  const list = document.getElementById('ad-list');
+  const status = document.getElementById('ad-status').value;
+  try {
+    const res = await api.get('/admin/reports', { status: status || undefined, limit: 100 });
+    const reports = res?.data?.reports || [];
+    document.getElementById('ad-title').textContent = `Denúncias (${reports.length})`;
+    if (!reports.length) { list.innerHTML = `<div class="empty"><div class="empty-ico">🚩</div><h3>Nenhuma denúncia</h3></div>`; return; }
+    list.innerHTML = `<div class="tbl-wrap"><table><thead><tr><th>Data</th><th>Tipo</th><th>Motivo</th><th>Descrição</th><th>Denunciante</th><th>Estado</th><th>Acções</th></tr></thead><tbody>
+      ${reports.map(r => `<tr>
+        <td style="font-size:11px;color:var(--t4)">${fmtDate(r.createdAt)}</td>
+        <td><span class="badge b-gray">${r.type}</span></td>
+        <td>${esc(r.reason)}</td>
+        <td style="font-size:12px;max-width:180px">${esc(r.description)}</td>
+        <td style="font-size:12px">${esc(r.reporter?.name||'')}</td>
+        <td><span class="badge ${r.status==='PENDENTE'?'b-amb':'b-grn'}">${r.status}</span></td>
+        <td style="white-space:nowrap">
+          ${r.status==='PENDENTE' ? `<button class="btn btn-success btn-xs" onclick="resolveReport('${r.id}','RESOLVIDA')">Resolver</button>
+            <button class="btn btn-ghost btn-xs" style="margin-left:4px" onclick="resolveReport('${r.id}','ARQUIVADA')">Arquivar</button>` : '—'}
+        </td>
+      </tr>`).join('')}
+    </tbody></table></div>`;
+  } catch (e) {
+    list.innerHTML = `<div class="empty"><div class="empty-ico">⚠</div><h3>${esc(apiErrorMessage(e))}</h3></div>`;
+  }
+}
+
+async function resolveReport(id, status) {
+  try {
+    await api.patch(`/admin/reports/${id}/resolve`, { status });
+    toast(`Denúncia ${status.toLowerCase().replace('_',' ')}.`);
+    loadReports();
+  } catch (e) { toast(apiErrorMessage(e), 'err'); }
+}
+</script>
+</body></html>

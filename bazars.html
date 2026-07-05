@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="pt" data-theme="light">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Bazares</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;0,14..32,800;1,14..32,500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header id="topbar"></header><div class="overlay" id="overlay"></div><aside id="sidebar" class="closed"></aside>
+<div id="main"><div class="pg-body">
+  <div class="pg-hero">
+    <div class="pg-hero-content">
+      <div class="section-pill">🏪 Lojas</div>
+      <h1>Todos os Bazares</h1>
+      <p>Explore as lojas dos nossos vendedores verificados</p>
+      <div class="pg-hero-actions">
+        <div style="position:relative;max-width:360px;flex:1">
+          <span style="position:absolute;left:14px;top:50%;transform:translateY(-50%);font-size:14px;color:rgba(255,255,255,.4)">🔍</span>
+          <input id="bsrch" placeholder="Pesquisar bazares..." style="padding-left:40px;border-radius:var(--pill);background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.2);color:#fff;width:100%">
+        </div>
+      </div>
+    </div>
+  </div>
+  <div id="baz-grid" class="baz-grid"><div style="text-align:center;padding:40px;grid-column:1/-1"><span class="spinner spinner-dark"></span></div></div>
+</div></div>
+<div id="modal-root"></div><div id="toast-root"></div>
+<script src="js/config.js"></script><script src="js/api.js"></script><script src="js/app.js"></script>
+<script>
+function bazCard(b){
+  return `<div class="baz-card card-hover" onclick="go('bazar.html',{id:'${b.slug||b.id}'})">
+    <div class="baz-head">
+      ${avatar(b.name,50,b.logoUrl||b.logo_url||b.imageUrl||null)}
+      <div style="flex:1;min-width:0;position:relative;z-index:1">
+        <div style="color:#fff;font-weight:700;font-size:15px;margin-bottom:2px">${esc(b.name)}</div>
+        <div style="color:rgba(255,255,255,.5);font-size:11px;text-transform:uppercase;letter-spacing:.05em">${esc(b.category)}</div>
+      </div>
+      ${b.seller?.verifiedSeller?`<span class="badge b-gld" style="position:relative;z-index:1">✓ Verificado</span>`:''}
+    </div>
+    <div class="baz-body">
+      <p class="baz-desc">${esc((b.description||'Sem descrição').slice(0,100))}</p>
+      <div class="baz-footer">
+        <div>${stars(b.seller?.rating||0)} <span style="font-size:11px;color:var(--t4)">${b.seller?.ratingCount?b.seller.rating.toFixed(1)+' ('+b.seller.ratingCount+')':'Sem avaliações'}</span></div>
+        <span style="font-size:11px;font-weight:600;color:var(--t3)">${b._count?.products??0} produto(s)</span>
+      </div>
+    </div>
+  </div>`;
+}
+
+async function loadBazars(q){
+  const grid=document.getElementById('baz-grid');
+  grid.innerHTML=`<div style="text-align:center;padding:40px;grid-column:1/-1"><span class="spinner spinner-dark"></span></div>`;
+  try {
+    const res=await api.get('/bazars',{q:q||undefined,limit:40});
+    const bazars=res?.data?.bazars||[];
+    grid.innerHTML=bazars.length?bazars.map(bazCard).join(''):`<div class="empty" style="grid-column:1/-1"><div class="empty-ico">🏪</div><h3>Nenhum bazar encontrado</h3></div>`;
+  } catch(e){
+    grid.innerHTML=`<div class="empty" style="grid-column:1/-1"><div class="empty-ico">⚠</div><h3>${esc(apiErrorMessage(e))}</h3></div>`;
+  }
+}
+
+initPage({ active:'bazars.html', onReady:()=>{
+  loadBazars();
+  let t;
+  document.getElementById('bsrch').addEventListener('input',e=>{clearTimeout(t);t=setTimeout(()=>loadBazars(e.target.value.trim()),350);});
+}});
+</script></body></html>

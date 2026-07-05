@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="pt" data-theme="light">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Admin — Relatórios — Bazares</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;0,14..32,800;1,14..32,500&display=swap" rel="stylesheet"><link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header id="topbar"></header>
+<div class="overlay" id="overlay"></div>
+<aside id="sidebar" class="closed"></aside>
+<div id="main"><div id="view" class="pg-body"><div style="text-align:center;padding:40px"><span class="spinner spinner-dark"></span></div></div></div>
+<div id="modal-root"></div>
+<div id="toast-root"></div>
+
+<script src="js/config.js"></script>
+<script src="js/api.js"></script>
+<script src="js/app.js"></script>
+<script>
+initPage({ active: 'admin-reports.html', requireAuth: true, roles: ['ADMIN'], onReady: async () => {
+  const view = document.getElementById('view');
+  try {
+    const res = await api.get('/admin/analytics/reports');
+    const d = res.data;
+    const maxSales = d.topSellers[0]?.totalSales || 1;
+    const maxProdSales = d.topProducts[0]?.sales || 1;
+
+    view.innerHTML = `
+      <div class="sh"><h2>Relatórios & Análise</h2></div>
+      <div class="row2" style="margin-bottom:18px">
+        <div class="card">
+          <h4 style="margin-bottom:12px">Top Vendedores</h4>
+          ${d.topSellers.length ? d.topSellers.map((s,i) => `<div style="display:flex;align-items:center;gap:9px;margin-bottom:8px">
+            <span style="font-size:11px;font-weight:700;color:var(--t4);min-width:16px">${i+1}</span>
+            <div style="flex:1"><div style="font-size:13px;font-weight:600">${esc(s.seller?.name||'')}</div>
+              <div class="prog" style="margin-top:2px"><div class="prog-fill pf-navy" style="width:${Math.round((s.totalSales/maxSales)*100)}%"></div></div></div>
+            <span style="font-size:12px;font-weight:700">${fmtMT(s.totalSales)}</span>
+          </div>`).join('') : `<p style="color:var(--t4);font-size:13px">Sem dados.</p>`}
+        </div>
+        <div class="card">
+          <h4 style="margin-bottom:12px">Top Produtos</h4>
+          ${d.topProducts.length ? d.topProducts.map((p,i) => `<div style="display:flex;align-items:center;gap:9px;margin-bottom:8px">
+            <span style="font-size:11px;font-weight:700;color:var(--t4);min-width:16px">${i+1}</span>
+            <div style="flex:1"><div style="font-size:13px;font-weight:600">${esc(p.name)}</div>
+              <div class="prog" style="margin-top:2px"><div class="prog-fill pf-gold" style="width:${Math.round(((p.sales||0)/maxProdSales)*100)}%"></div></div></div>
+            <span style="font-size:12px;font-weight:700">${p.sales||0} un.</span>
+          </div>`).join('') : `<p style="color:var(--t4);font-size:13px">Sem dados.</p>`}
+        </div>
+      </div>
+      <div class="card">
+        <h4 style="margin-bottom:12px">Por categoria</h4>
+        ${d.byCategory.length ? `<div class="tbl-wrap" style="border:none"><table><thead><tr><th>Categoria</th><th>Produtos</th><th>Unidades vendidas</th></tr></thead><tbody>
+          ${d.byCategory.map(c => `<tr><td>${esc(c.category)}</td><td>${c._count}</td><td><strong>${c._sum.sales||0}</strong></td></tr>`).join('')}
+        </tbody></table></div>` : `<p style="color:var(--t4);font-size:13px">Sem dados.</p>`}
+      </div>`;
+  } catch (e) {
+    view.innerHTML = `<div class="empty"><div class="empty-ico">⚠</div><h3>${esc(apiErrorMessage(e))}</h3></div>`;
+  }
+}});
+</script>
+</body></html>

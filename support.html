@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="pt" data-theme="light">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Suporte — Bazares</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;0,14..32,800;1,14..32,500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header id="topbar"></header><div class="overlay" id="overlay"></div><aside id="sidebar" class="closed"></aside>
+<div id="main"><div class="pg-body">
+  <div class="pg-hero" style="margin-bottom:28px">
+    <div class="pg-hero-content">
+      <div class="section-pill">🆘 Ajuda</div>
+      <h1>Centro de Suporte</h1>
+      <p>Estamos aqui para ajudar — de segunda a sexta, das 08h às 20h</p>
+    </div>
+  </div>
+
+  <div class="contact-cards" style="margin-bottom:32px">
+    <div class="contact-card">
+      <div class="contact-card-ico">📧</div>
+      <h4>Email</h4>
+      <p>bazares09@gmail.com</p>
+      <a href="mailto:bazares09@gmail.com" class="btn btn-primary btn-sm btn-block" style="margin-top:12px;justify-content:center">Enviar email</a>
+    </div>
+    <div class="contact-card">
+      <div class="contact-card-ico">📞</div>
+      <h4>Telefone</h4>
+      <p>+258 84 676 1897</p>
+      <a href="tel:+258846761897" class="btn btn-primary btn-sm btn-block" style="margin-top:12px;justify-content:center">Ligar agora</a>
+    </div>
+    <div class="contact-card">
+      <div class="contact-card-ico">💬</div>
+      <h4>WhatsApp</h4>
+      <p>+258 84 676 1897</p>
+      <a href="https://wa.me/258846761897" target="_blank" class="btn btn-success btn-sm btn-block" style="margin-top:12px;justify-content:center">Abrir WhatsApp</a>
+    </div>
+    <div class="contact-card">
+      <div class="contact-card-ico">📍</div>
+      <h4>Localização</h4>
+      <p>Maputo, Moçambique</p>
+      <div style="font-size:11px;color:var(--t4);margin-top:12px">08h – 20h · Dias úteis</div>
+    </div>
+  </div>
+
+  <div class="sh"><h2>Perguntas frequentes</h2><p>Respostas às dúvidas mais comuns</p></div>
+  <div id="faq" style="display:flex;flex-direction:column;gap:10px;margin-bottom:32px"></div>
+
+  <div class="sh"><h2>Termos, Privacidade & Política</h2></div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;margin-bottom:32px">
+    ${[['🔒','Política de Privacidade','Os seus dados são tratados com máxima segurança e nunca partilhados com terceiros sem o seu consentimento.'],
+       ['📜','Termos de Uso','Ao usar o Bazares, aceita os nossos termos de serviço. Leia-os para compreender os seus direitos e obrigações.'],
+       ['🍪','Política de Cookies','Utilizamos cookies para melhorar a sua experiência. Pode gerir as suas preferências nas definições.'],
+       ['♿','Acessibilidade','O Bazares está comprometido com a acessibilidade digital para todos os utilizadores.']
+    ].map(([ico,t,d])=>`<div class="card"><div style="font-size:26px;margin-bottom:10px">${ico}</div><h4>${t}</h4><p style="font-size:12.5px">${d}</p></div>`).join('')}
+  </div>
+</div></div>
+<div id="modal-root"></div><div id="toast-root"></div>
+<script src="js/config.js"></script><script src="js/api.js"></script><script src="js/app.js"></script>
+<script>
+const FAQS=[
+  ['Como criar uma conta?','Clique em "Criar conta" no topo da página. Preencha o seu nome, email e palavra-passe. A conta é criada instantaneamente — sem verificações demoradas.'],
+  ['Como abrir o meu Bazar?','Após criar uma conta como Vendedor, aceda ao Dashboard e clique em "Meu Bazar". Preencha as informações e publique o seu espaço de venda.'],
+  ['Como publicar um produto?','No menu lateral, vá a "Produtos" e clique em "+ Adicionar produto". Preencha nome, preço, stock e categoria. O produto fica imediatamente visível.'],
+  ['Como funciona a contribuição de plataforma?','A cada 150 MT de vendas, é solicitado um pagamento de contribuição via M-Pesa ou Emola para José Jeque (84 676 1897). Após pagamento, envie o comprovativo no chat.'],
+  ['Como encomendar um produto?','Encontre o produto que deseja, escolha a quantidade e clique em "Encomendar". Pode também adicionar ao carrinho e fazer checkout depois.'],
+  ['Como contactar um vendedor?','Na página do produto ou do Bazar, clique em "Falar com o vendedor". O chat abre directamente dentro da plataforma.'],
+  ['Posso devolver um produto?','As devoluções são acordadas directamente com o vendedor via chat. O Bazares não intermedeia reembolsos directamente.'],
+  ['Como funciona o programa de referidos?','Partilhe o seu link de referência em "Referências". Quando alguém criar conta através do seu link, receberá comissão sobre as vendas.'],
+];
+
+initPage({ active:'support.html', onReady:()=>{
+  const faqEl=document.getElementById('faq');
+  faqEl.innerHTML=FAQS.map(([q,a],i)=>`
+    <div class="card" style="padding:0;cursor:pointer" onclick="toggleFaq(${i})">
+      <div style="padding:16px 20px;display:flex;justify-content:space-between;align-items:center;gap:12px">
+        <h4 style="font-size:14px;font-weight:600;margin:0">${q}</h4>
+        <span id="faq-ico-${i}" style="color:var(--t4);font-size:18px;flex-shrink:0;transition:.2s">+</span>
+      </div>
+      <div id="faq-body-${i}" style="display:none;padding:0 20px 16px;border-top:1px solid var(--brd)">
+        <p style="font-size:13px;margin-top:12px;color:var(--t2)">${a}</p>
+      </div>
+    </div>`).join('');
+}});
+
+function toggleFaq(i){
+  const body=document.getElementById(`faq-body-${i}`);
+  const ico=document.getElementById(`faq-ico-${i}`);
+  const open=body.style.display==='block';
+  body.style.display=open?'none':'block';
+  ico.textContent=open?'+':'−';
+  ico.style.color=open?'var(--t4)':'var(--b-500)';
+}
+</script></body></html>

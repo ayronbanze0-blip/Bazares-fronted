@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="pt" data-theme="light">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Admin — Utilizadores — Bazares</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;0,14..32,800;1,14..32,500&display=swap" rel="stylesheet"><link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header id="topbar"></header>
+<div class="overlay" id="overlay"></div>
+<aside id="sidebar" class="closed"></aside>
+<div id="main">
+  <div class="pg-body">
+    <div class="sh-row">
+      <div class="sh"><h2 id="au-title">Utilizadores</h2></div>
+      <div style="display:flex;gap:8px">
+        <select id="au-role" style="width:160px">
+          <option value="">Todos os tipos</option><option value="SELLER">Vendedores</option>
+          <option value="BUYER">Compradores</option><option value="REVENDEDOR">Revendedores</option><option value="ADMIN">Administradores</option>
+        </select>
+        <input id="au-q" placeholder="Pesquisar..." style="width:200px">
+      </div>
+    </div>
+    <div id="au-list"><div style="text-align:center;padding:40px"><span class="spinner spinner-dark"></span></div></div>
+  </div>
+</div>
+<div id="modal-root"></div>
+<div id="toast-root"></div>
+
+<script src="js/config.js"></script>
+<script src="js/api.js"></script>
+<script src="js/app.js"></script>
+<script>
+initPage({ active: 'admin-users.html', requireAuth: true, roles: ['ADMIN'], onReady: () => {
+  let t;
+  document.getElementById('au-role').addEventListener('change', loadUsers);
+  document.getElementById('au-q').addEventListener('input', () => { clearTimeout(t); t = setTimeout(loadUsers, 350); });
+  loadUsers();
+}});
+
+async function loadUsers() {
+  const list = document.getElementById('au-list');
+  const role = document.getElementById('au-role').value;
+  const q = document.getElementById('au-q').value.trim();
+  try {
+    const res = await api.get('/admin/users', { role: role || undefined, q: q || undefined, limit: 100 });
+    const users = res?.data?.users || [];
+    document.getElementById('au-title').textContent = `Utilizadores (${users.length})`;
+    list.innerHTML = `<div class="tbl-wrap"><table><thead><tr><th>Nome</th><th>Email</th><th>Tipo</th><th>Bazar</th><th>Avaliação</th><th>Estado</th><th>Acções</th></tr></thead><tbody>
+      ${users.map(u => `<tr>
+        <td><strong>${esc(u.name)}</strong>${u.revendedor ? `<div style="font-size:10px;color:var(--t4)">via ${esc(u.revendedor.name)}</div>` : ''}</td>
+        <td style="font-size:12px;color:var(--t3)">${esc(u.email)}</td>
+        <td><span class="badge b-gray">${ROLE_LABEL[u.role]}</span></td>
+        <td>${u.bazar ? `${esc(u.bazar.name)} (${fmtMT(u.bazar.totalSales)})` : '—'}</td>
+        <td>${u.ratingCount ? `${u.rating.toFixed(1)} ★` : '—'}</td>
+        <td><span class="badge ${u.active?'b-grn':'b-red'}">${u.active?'Activo':'Suspenso'}</span></td>
+        <td style="white-space:nowrap">
+          ${u.role!=='ADMIN' ? `<button class="btn btn-ghost btn-xs" onclick="toggleUser('${u.id}','${esc(u.name)}')">${u.active?'Suspender':'Reactivar'}</button>` : ''}
+          ${u.role==='SELLER' ? `<button class="btn btn-ghost btn-xs" style="margin-left:4px" onclick="verifySeller('${u.id}','${esc(u.name)}')">${u.verifiedSeller?'Reverificar':'Verificar'}</button>` : ''}
+          <button class="btn btn-ghost btn-xs" style="margin-left:4px" onclick="messageUser('${u.id}')">Msg</button>
+        </td>
+      </tr>`).join('')}
+    </tbody></table></div>`;
+  } catch (e) {
+    list.innerHTML = `<div class="empty"><div class="empty-ico">⚠</div><h3>${esc(apiErrorMessage(e))}</h3></div>`;
+  }
+}
+
+async function toggleUser(id, name) {
+  try {
+    const res = await api.patch(`/admin/users/${id}/toggle`);
+    toast(`${name}: ${res?.data?.user?.active ? 'reactivado' : 'suspenso'}.`, res?.data?.user?.active ? 'ok' : 'warn');
+    loadUsers();
+  } catch (e) { toast(apiErrorMessage(e), 'err'); }
+}
+
+async function verifySeller(id, name) {
+  try {
+    const res = await api.patch(`/admin/users/${id}/verify-seller`);
+    toast(`${name} ${res?.data?.user?.verifiedSeller ? 'verificado' : 'desverificado'}.`);
+    loadUsers();
+  } catch (e) { toast(apiErrorMessage(e), 'err'); }
+}
+
+function messageUser(id) {
+  openModal(`
+    <div class="modal-hd"><h2>Enviar mensagem</h2><button class="modal-x" onclick="closeModal()">✕</button></div>
+    <div class="fg"><label>Mensagem</label><textarea id="amsg" rows="4" placeholder="Escreva a mensagem..."></textarea></div>
+    <div style="display:flex;gap:9px"><button class="btn btn-primary" onclick="sendUserMessage('${id}')">Enviar</button><button class="btn btn-ghost" onclick="closeModal()">Cancelar</button></div>`);
+}
+async function sendUserMessage(id) {
+  const message = document.getElementById('amsg').value.trim();
+  if (!message) { toast('Escreva a mensagem.', 'warn'); return; }
+  try {
+    await api.post(`/admin/users/${id}/message`, { message });
+    closeModal();
+    toast('Mensagem enviada.');
+  } catch (e) { toast(apiErrorMessage(e), 'err'); }
+}
+</script>
+</body></html>

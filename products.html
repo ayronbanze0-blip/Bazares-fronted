@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="pt" data-theme="light">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Produtos — Bazares</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;0,14..32,800;1,14..32,500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header id="topbar"></header><div class="overlay" id="overlay"></div><aside id="sidebar" class="closed"></aside>
+<div id="main"><div class="pg-body">
+  <div class="pg-hero">
+    <div class="pg-hero-content">
+      <div class="section-pill">📦 Catálogo</div>
+      <h1>Todos os produtos</h1>
+      <p>Navegue por milhares de produtos de vendedores moçambicanos</p>
+    </div>
+  </div>
+  <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;align-items:center">
+    <div style="position:relative;flex:1;min-width:180px">
+      <span style="position:absolute;left:14px;top:50%;transform:translateY(-50%);font-size:14px;color:var(--t4)">🔍</span>
+      <input id="psrch" placeholder="Pesquisar produtos..." style="padding-left:40px;border-radius:var(--pill)">
+    </div>
+    <select id="pcat" style="width:190px;border-radius:var(--pill)"><option value="">Todas as categorias</option></select>
+    <select id="psort" style="width:165px;border-radius:var(--pill)">
+      <option value="new">Mais recentes</option>
+      <option value="price-asc">Menor preço</option>
+      <option value="price-desc">Maior preço</option>
+      <option value="rating">Mais avaliados</option>
+      <option value="sales">Mais vendidos</option>
+    </select>
+  </div>
+  <div class="cat-strip" id="cat-strip" style="margin-bottom:18px"></div>
+  <div id="pp-total" style="font-size:12px;color:var(--t4);margin-bottom:12px"></div>
+  <div id="pp-grid" class="p-grid"><div style="text-align:center;padding:40px;grid-column:1/-1"><span class="spinner spinner-dark"></span></div></div>
+  <div id="pp-pagination"></div>
+</div></div>
+<div id="modal-root"></div><div id="toast-root"></div>
+<script src="js/config.js"></script><script src="js/api.js"></script><script src="js/app.js"></script>
+<script>
+let _curPage=1,_curCat='';
+
+async function loadProducts(page=1){
+  _curPage=page;
+  const grid=document.getElementById('pp-grid');
+  grid.innerHTML=`<div style="text-align:center;padding:40px;grid-column:1/-1"><span class="spinner spinner-dark"></span></div>`;
+  const q=document.getElementById('psrch').value.trim();
+  const sort=document.getElementById('psort').value;
+  try{
+    const res=await api.get('/products',{q:q||undefined,category:_curCat||undefined,sort,page,limit:24});
+    const products=res?.data?.products||[];
+    const meta=res?.data?.meta||{};
+    document.getElementById('pp-total').textContent=meta.total?`${meta.total} produto(s) encontrado(s)`:'';
+    grid.innerHTML=products.length?products.map(productCard).join('')
+      :`<div class="empty" style="grid-column:1/-1"><div class="empty-ico">🔍</div><h3>Sem resultados</h3><p>Tente outros termos de pesquisa</p></div>`;
+    renderPagination('pp-pagination',meta,loadProducts);
+  } catch(e){
+    grid.innerHTML=`<div class="empty" style="grid-column:1/-1"><div class="empty-ico">⚠</div><h3>${esc(apiErrorMessage(e))}</h3></div>`;
+  }
+}
+
+initPage({ active:'products.html', onReady:()=>{
+  const sel=document.getElementById('pcat');
+  CATS.forEach(c=>sel.insertAdjacentHTML('beforeend',`<option value="${esc(c.l)}">${esc(c.l)}</option>`));
+  const fromUrl=getParam('category');
+  if(fromUrl){_curCat=fromUrl;sel.value=fromUrl;}
+  renderCatStrip('cat-strip',_curCat,cat=>{_curCat=cat;document.getElementById('pcat').value=cat;loadProducts(1);});
+  let t;
+  document.getElementById('psrch').addEventListener('input',()=>{clearTimeout(t);t=setTimeout(()=>loadProducts(1),350);});
+  document.getElementById('pcat').addEventListener('change',e=>{_curCat=e.target.value;loadProducts(1);});
+  document.getElementById('psort').addEventListener('change',()=>loadProducts(1));
+  loadProducts(1);
+}});
+</script></body></html>

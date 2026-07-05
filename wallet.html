@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="pt" data-theme="light">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Wallet — Bazares</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;0,14..32,800;1,14..32,500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header id="topbar"></header><div class="overlay" id="overlay"></div><aside id="sidebar" class="closed"></aside>
+<div id="main"><div id="view" class="pg-body"></div></div>
+<div id="modal-root"></div><div id="toast-root"></div>
+<script src="js/config.js"></script><script src="js/api.js"></script><script src="js/app.js"></script>
+<script>
+let _walletUser = null;
+let _walletBazar = null;
+
+initPage({ active:'wallet.html', requireAuth:true, onReady: async (user) => {
+  _walletUser = user;
+  await loadWallet();
+  // Vem do botão "Pagar comissão" do dashboard — abre o modal direto,
+  // sem o vendedor precisar procurar onde pagar.
+  if (getParam('action') === 'pay') openPayCommissionStk();
+}});
+
+async function loadWallet() {
+  const view = document.getElementById('view');
+  view.innerHTML = `<div style="text-align:center;padding:60px"><span class="spinner spinner-dark"></span></div>`;
+
+  let statement = { balance: 0, transactions: [] };
+  try { statement = (await api.get('/wallet/me', { limit: 30 }))?.data || statement; } catch (e) { toast(apiErrorMessage(e), 'err'); }
+
+  let bazar = null;
+  if (_walletUser.role === 'SELLER') {
+    try { bazar = (await api.get('/bazars/me'))?.data?.bazar || null; } catch {}
+  }
+  _walletBazar = bazar;
+
+  const pf = bazar?.pendingFees || 0;
+  const FEE = 150;
+
+  view.innerHTML = `
+    <div class="pg-hero">
+      <div class="pg-hero-content">
+        <div class="section-pill">💼 Wallet</div>
+        <h1>A minha Wallet</h1>
+        <p>Saldo e contribuição de plataforma</p>
+      </div>
+    </div>
+
+    <div class="wallet-card">
+      <div class="wallet-card-top">
+        <div>
+          <div class="wallet-label">💰 Saldo disponível</div>
+          <div class="wallet-figs">
+            <div class="wallet-fig"><div class="v">${fmtMT(statement.balance)}</div><div class="l">Saldo actual</div></div>
+          </div>
+        </div>
+        <div class="wallet-ico">💼</div>
+      </div>
+      ${_walletUser.role === 'SELLER' && pf > 0 ? `<div class="wallet-warn"><span>${pf >= FEE ? '⚠️' : 'ℹ️'}</span><div>Contribuição de plataforma pendente: <strong>${fmtMT(pf)}</strong>${pf >= FEE ? ' — pague agora para continuar a vender.' : '.'}</div></div>` : ''}
+    </div>
+
+    ${_walletUser.role === 'SELLER' && pf > 0 ? `
+    <div class="card" style="margin-top:16px;border:1.5px solid var(--a-300)">
+      <h4 style="margin-bottom:6px">Pagar contribuição de plataforma</h4>
+      <p style="font-size:13px;color:var(--t3);margin-bottom:14px">Deve <strong style="color:var(--a-600)">${fmtMT(pf)}</strong> pela utilização do Bazares. Escolha como pagar:</p>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn btn-primary btn-sm" onclick="payCommissionWallet()">💼 Pagar com saldo da wallet</button>
+        <button class="btn btn-gold btn-sm" onclick="openPayCommissionStk()">📲 Pagar com M-Pesa/e-Mola (STK)</button>
+      </div>
+    </div>` : ''}
+
+    <div class="qa-grid" style="margin-top:20px">
+      <div class="qa-tile" onclick="go('wallet-history.html')"><div class="qa-tile-ico" style="background:var(--a-500)">📜</div><span>Histórico</span></div>
+    </div>
+
+    <div class="sh-row" style="margin-top:24px"><h2>Movimentos recentes</h2></div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Data</th><th>Descrição</th><th>Tipo</th><th>Valor</th><th>Saldo após</th></tr></thead>
+        <tbody>
+          ${statement.transactions.length ? statement.transactions.map(t => `<tr>
+            <td style="color:var(--t3);font-size:12px">${fmtDate(t.createdAt)}</td>
+            <td>${esc(t.description)}</td>
+            <td>${txTypeBadge(t.type)}</td>
+            <td style="font-weight:700;color:${isCreditType(t.type) ? 'var(--grn)' : 'var(--red)'}">${isCreditType(t.type) ? '+' : '−'}${fmtMT(t.amount)}</td>
+            <td style="color:var(--t3)">${fmtMT(t.balanceAfter)}</td>
+          </tr>`).join('') : `<tr><td colspan="5" style="text-align:center;color:var(--t4);padding:32px">Sem movimentos ainda</td></tr>`}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+function isCreditType(type) {
+  return ['CREDITO_DEPOSITO', 'TRANSFERENCIA_RECEBIDA', 'CREDITO_COMISSAO', 'AJUSTE_ADMIN'].includes(type);
+}
+
+function txTypeBadge(type) {
+  const map = {
+    CREDITO_DEPOSITO: ['Depósito', 'b-grn'],
+    DEBITO_LEVANTAMENTO: ['Levantamento', 'b-red'],
+    TRANSFERENCIA_ENVIADA: ['Transferência enviada', 'b-blu'],
+    TRANSFERENCIA_RECEBIDA: ['Transferência recebida', 'b-grn'],
+    DEBITO_COMISSAO: ['Comissão paga', 'b-red'],
+    CREDITO_COMISSAO: ['Comissão recebida', 'b-grn'],
+    AJUSTE_ADMIN: ['Ajuste admin', 'b-gld']
+  };
+  const [label, cls] = map[type] || [type, 'b-blu'];
+  return `<span class="badge ${cls}">${label}</span>`;
+}
+
+// ─── COMMISSION PAYMENT ──────────────────────────────────────────
+async function payCommissionWallet() {
+  if (!confirm(`Confirmar pagamento de ${fmtMT(_walletBazar?.pendingFees || 0)} a partir do saldo da sua wallet?`)) return;
+  try {
+    await api.post('/wallet/commission/pay', { method: 'WALLET' });
+    toast('Contribuição paga com sucesso!');
+    await loadWallet();
+  } catch (e) { toast(apiErrorMessage(e), 'err'); }
+}
+
+function openPayCommissionStk() {
+  openModal(`
+    <div class="modal-hd"><h3>Pagar via M-Pesa/e-Mola</h3><button class="modal-x" onclick="closeModal()">✕</button></div>
+    <p style="font-size:12.5px;color:var(--t3);margin-bottom:14px">Vamos enviar um pedido de pagamento (STK push) para o seu telefone. Introduza o seu PIN quando o popup aparecer no telemóvel.</p>
+    <div class="fg"><label>Número de telefone *</label><input id="comm-msisdn" placeholder="84xxxxxxx ou 86xxxxxxx"></div>
+    <button class="btn btn-gold btn-block" onclick="submitPayCommissionStk()">Enviar pedido de pagamento</button>
+  `);
+}
+
+async function submitPayCommissionStk() {
+  const msisdn = document.getElementById('comm-msisdn').value.trim();
+  if (!msisdn) { toast('Indique o número de telefone.', 'warn'); return; }
+
+  try {
+    await api.post('/wallet/commission/pay', { method: 'ZUMBOPAY', msisdn });
+    closeModal();
+    toast('Pedido enviado! Verifique o seu telemóvel e introduza o PIN para confirmar.', 'info', 6000);
+  } catch (e) {
+    // Se o backend indicar que há um pagamento anterior preso (ex: o
+    // utilizador nunca confirmou o PIN e o webhook nunca chegou),
+    // oferece um botão para cancelar esse pagamento e liberta o
+    // caminho para uma nova tentativa, em vez de deixar o vendedor
+    // bloqueado sem saber o que fazer.
+    const pendingId = e?.errors?.pendingPaymentId;
+    if (pendingId) {
+      openModal(`
+        <div class="modal-hd"><h3>Pagamento anterior pendente</h3><button class="modal-x" onclick="closeModal()">✕</button></div>
+        <p style="font-size:12.5px;color:var(--t3);margin-bottom:14px">${esc(apiErrorMessage(e))}</p>
+        <button class="btn btn-danger btn-block" style="margin-bottom:8px" onclick="cancelStuckCommissionPayment('${pendingId}')">Cancelar pagamento anterior e tentar de novo</button>
+        <button class="btn btn-ghost btn-block" onclick="closeModal()">Fechar</button>
+      `);
+    } else {
+      toast(apiErrorMessage(e), 'err');
+    }
+  }
+}
+
+async function cancelStuckCommissionPayment(paymentId) {
+  try {
+    await api.post(`/wallet/commission/${paymentId}/cancel`);
+    toast('Pagamento anterior cancelado. Pode tentar novamente.', 'info');
+    closeModal();
+    openPayCommissionStk();
+  } catch (e) { toast(apiErrorMessage(e), 'err'); }
+}
+</script>
+</body></html>
